@@ -68,6 +68,7 @@ impl Command {
 
     match list_name.to_str() {
       Some(str) => {
+        println!("Found git repository. Using todo list: {str}");
         Some(str.to_ascii_uppercase())
       },
       None => {
@@ -78,33 +79,32 @@ impl Command {
   }
   
   fn create_config_file(home_dir: &path::Display, default_list: &str) {
-    println!("Creating directory: \"{}/.notes\"", home_dir);
-    fs::create_dir(format!("{}/.notes", home_dir)).unwrap_or_else(|err| {
-      eprintln!("Error creating \"{}/.notes\" directory: {}", home_dir, err);
+    println!("Creating directory: \"{}/.todo_notes\"", home_dir);
+    fs::create_dir(format!("{}/.todo_notes", home_dir)).unwrap_or_else(|err| {
+      eprintln!("Error creating \"{}/.todo_notes\" directory: {}", home_dir, err);
       process::exit(1);
     });
     Self::add_list_to_config(home_dir, default_list);
   }
 
   fn add_list_to_config(home_dir: &path::Display, list_name: &str) -> String {
-    println!("Creating task file: \"{home_dir}/.notes/{}.txt\"", list_name.to_lowercase());
-    let mut config = fs::File::create(format!("{}/.notes/config.toml", home_dir)).unwrap();
-    fs::File::create(format!("{}/.notes/{}.txt", home_dir, list_name)).unwrap();
+    println!("Creating task file: \"{home_dir}/.todo_notes/{}.txt\"", list_name.to_lowercase());
+    let mut config = fs::File::create(format!("{}/.todo_notes/config.toml", home_dir)).unwrap();
+    fs::File::create(format!("{}/.todo_notes/{}.txt", home_dir, list_name)).unwrap();
     config.write(
-      format!("{}={}/.notes/{}.txt", list_name, home_dir, list_name.to_lowercase()
+      format!("{}={}/.todo_notes/{}.txt", list_name, home_dir, list_name.to_lowercase()
     ).as_bytes()).unwrap();
-    String::from(format!("{}/.notes/{}.txt", home_dir, list_name.to_lowercase()))
+    String::from(format!("{}/.todo_notes/{}.txt", home_dir, list_name.to_lowercase()))
   }
 
   fn get_config() -> Result<String, ()> {
-
     // attempt to find a config file in the users $HOME directory
     // and create one with a default task list if unsuccessful
     let list = String::from("DEFAULT");
     let home_dir = home_dir().unwrap();
-    let mut config_file = fs::File::open(format!("{}/.notes/config.toml", home_dir.display())).unwrap_or_else(|_| {
+    let mut config_file = fs::File::open(format!("{}/.todo_notes/config.toml", home_dir.display())).unwrap_or_else(|_| {
       Self::create_config_file(&home_dir.display(), &list);
-      fs::File::open(format!("{}/.notes/config.toml", home_dir.display())).unwrap()
+      fs::File::open(format!("{}/.todo_notes/config.toml", home_dir.display())).unwrap()
     });
 
     let mut buf = String::new();
@@ -125,7 +125,6 @@ impl Command {
       list_name = Self::add_list_to_config(&home_dir.display(), &list);
     }
 
-    println!("Using task list: {}", list_name);
     Ok(list_name)
   }
 
@@ -154,7 +153,7 @@ impl Command {
     let mut opts = Options::new();
     opts.optopt("a", "add", "Add \"list item\"", "");
     opts.optflag("l", "list", "List all items");
-    opts.optopt("d", "delete", "Delete list item n", "");
+    opts.optopt("d", "delete", "Delete list item \"n\"", "");
     opts.optflag("h", "help", "Display usage info");
 
     // parse options

@@ -35,7 +35,7 @@ Added new item: 02. second item
 ```
 
 ```
-$ ./todo_notes -l "second item"
+$ ./todo_notes -l
 
 Found git repository. Using todo list: todo_notes
 01. first item

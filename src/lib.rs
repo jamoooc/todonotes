@@ -89,11 +89,28 @@ impl Command {
 
   fn add_list_to_config(home_dir: &path::Display, list_name: &str) -> String {
     println!("Creating task file: \"{home_dir}/.todo_notes/{}.txt\"", list_name.to_lowercase());
-    let mut config = fs::File::create(format!("{}/.todo_notes/config.toml", home_dir)).unwrap();
+
+    let mut config = fs::File::options()
+      .append(true)
+      .read(true)
+      .create(true)
+      .open(format!("{}/.todo_notes/config.toml", home_dir))
+      .unwrap();
+    
+    let mut buf = String::new();
+    config.read_to_string(&mut buf).unwrap();
+
+    let list = format!("\n{}={}/.todo_notes/{}.txt", list_name, home_dir, list_name.to_lowercase());
+
+    // write list name, or append with a newline if the file is not empty
+    match buf.lines().nth(0) {
+      Some(_) => config.write(list.as_bytes()).unwrap(),
+      None => config.write(list.trim_start().as_bytes()).unwrap()
+    };
+
+    // create the task list
     fs::File::create(format!("{}/.todo_notes/{}.txt", home_dir, list_name)).unwrap();
-    config.write(
-      format!("{}={}/.todo_notes/{}.txt", list_name, home_dir, list_name.to_lowercase()
-    ).as_bytes()).unwrap();
+
     String::from(format!("{}/.todo_notes/{}.txt", home_dir, list_name.to_lowercase()))
   }
 

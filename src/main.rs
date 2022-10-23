@@ -1,5 +1,5 @@
 use std::env;
-use notes::Command;
+use todo_notes::Command;
 
 fn main() {
   let args: Vec<String> = env::args().collect();

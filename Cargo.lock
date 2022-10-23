@@ -183,16 +183,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2dffe52ecf27772e601905b7522cb4ef790d2cc203488bbd0e2fe85fcb74566d"
 
 [[package]]
-name = "notes"
-version = "0.1.0"
-dependencies = [
- "dirs",
- "getopts",
- "git2",
- "regex",
-]
-
-[[package]]
 name = "openssl-probe"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -323,6 +313,16 @@ name = "tinyvec_macros"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cda74da7e1a664f795bb1f8a87ec406fb89a02522cf6e50620d016add6dbbf5c"
+
+[[package]]
+name = "todo_notes"
+version = "0.1.0"
+dependencies = [
+ "dirs",
+ "getopts",
+ "git2",
+ "regex",
+]
 
 [[package]]
 name = "unicode-bidi"

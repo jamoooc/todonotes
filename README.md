@@ -2,7 +2,7 @@
 
 A command line TODO list program to practice concepts from [The Rust Book I/O project.](https://doc.rust-lang.org/book/ch12-00-an-io-project.html)
 
-It creates a directory `.todonotes` containing a config and TODO list files. It will attempt to discover if the user is in a git repository and create or use the associated list, otherwise it will use the default list.
+It creates a directory `.todo_notes` containing a config and TODO list files. It will attempt to discover if the user is in a git repository and create or use the associated list, otherwise it will use the default list.
 
 ```
 Usage: ./todo_notes [options]
@@ -40,4 +40,12 @@ $ ./todo_notes -l "second item"
 Found git repository. Using todo list: todo_notes
 01. first item
 02. second item
+```
+
+```
+$ ./todo_notes -d 1
+
+Found git repository. Using todo list: todo_notes
+Deleted list item: 1
+01. second item
 ```

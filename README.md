@@ -13,3 +13,31 @@ Options:
     -d, --delete        Delete list item n
     -h, --help          Display usage info
 ```
+
+```
+$ ./todo_notes -a "first item"`
+
+Creating directory: "/Users/jamie/.todo_notes"
+Creating task file: "/Users/jamie/.todo_notes/default.txt"
+Found git repository. Using todo list: todo_notes
+Creating task file: "/Users/jamie/.todo_notes/todo_notes.txt"
+Added new item: 01. first item
+01. first item
+```
+
+```
+$ ./todo_notes -a "second item"
+
+Found git repository. Using todo list: todo_notes
+Added new item: 02. second item
+01. first item
+02. second item
+```
+
+```
+$ ./todo_notes -l "second item"
+
+Found git repository. Using todo list: todo_notes
+01. first item
+02. second item
+```

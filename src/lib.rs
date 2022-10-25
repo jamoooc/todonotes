@@ -219,8 +219,7 @@ impl Command {
           getopts::Fail::UnexpectedArgument(f) => {
             eprintln!("Error: {}", getopts::Fail::UnexpectedArgument(f));
             process::exit(1);
-          },
-          _ => panic!("Error: {}", f.to_string())
+          }
         }
       }
     };

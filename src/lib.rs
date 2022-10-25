@@ -133,8 +133,8 @@ impl Command {
 
   fn get_config() -> Result<String, ()> {
 
-    // attempt to find a config file in the users config file path
-    // and create one with a default task list if unsuccessful
+    // attempt to find a config file in the users config file path,
+    // if unsuccessful create the config and a default task list
     let list = String::from("DEFAULT");
     let config_path = Self::get_user_config_dir();
     let mut config_file = Self::get_config_file_handle(&config_path, &list);

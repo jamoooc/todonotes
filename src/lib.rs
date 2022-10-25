@@ -113,13 +113,18 @@ impl Command {
     String::from(format!("{}/.todo_notes/{}.txt", config_dir, list_name.to_lowercase()))
   }
 
-  fn get_config() -> Result<String, ()> {
-    // get the defined config file path, or use the default path
+  // get the user config path defined in XDG_CONFIG_HOME, or use the default
+  fn get_user_config_dir() -> String {
     let home_dir = home_dir().unwrap();
-    let config_path = env::var("XDG_CONFIG_HOME").unwrap_or_else(|_| {
+    env::var("XDG_CONFIG_HOME").unwrap_or_else(|_| {
       String::from(format!("{}/.config", home_dir.display()))
-    });
-    
+    })
+  }
+
+  fn get_config() -> Result<String, ()> {
+
+    let config_path = Self::get_user_config_dir();
+
     // attempt to find a config file in the users config file path
     // and create one with a default task list if unsuccessful
     let list = String::from("DEFAULT");

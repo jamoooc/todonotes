@@ -133,7 +133,10 @@ impl Command {
 
     // if the user is in a git repo, create/use a task list for this
     // dir referenced by the uppercased repo name in the config
-    let list = Self::get_repo_name().unwrap_or_default();
+    let list = match Self::get_repo_name() {
+      Some(repo) => repo,
+      None => list
+    };
 
     let mut list_name = String::new();
     for line in buf.lines() {

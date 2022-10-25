@@ -1,6 +1,5 @@
 extern crate getopts;
 use getopts::Options;
-use std::path;
 use std::env;
 use std::{process, fs};
 use std::io::{Read, Write};
@@ -78,29 +77,29 @@ impl Command {
     }
   }
   
-  fn create_config_file(home_dir: &path::Display, default_list: &str) {
-    println!("Creating directory: \"{}/.todo_notes\"", home_dir);
-    fs::create_dir(format!("{}/.todo_notes", home_dir)).unwrap_or_else(|err| {
-      eprintln!("Error creating \"{}/.todo_notes\" directory: {}", home_dir, err);
+  fn create_config_file(config_dir: &str, default_list: &str) {
+    println!("Creating directory: \"{}/.todo_notes\"", config_dir);
+    fs::create_dir_all(format!("{}/.todo_notes", config_dir)).unwrap_or_else(|err| {
+      eprintln!("Error creating \"{}/.todo_notes\" directory: {}", config_dir, err);
       process::exit(1);
     });
-    Self::add_list_to_config(home_dir, default_list);
+    Self::add_list_to_config(config_dir, default_list);
   }
 
-  fn add_list_to_config(home_dir: &path::Display, list_name: &str) -> String {
-    println!("Creating task file: \"{home_dir}/.todo_notes/{}.txt\"", list_name.to_lowercase());
+  fn add_list_to_config(config_dir: &str, list_name: &str) -> String {
+    println!("Creating task file: \"{config_dir}/.todo_notes/{}.txt\"", list_name.to_lowercase());
 
     let mut config = fs::File::options()
       .append(true)
       .read(true)
       .create(true)
-      .open(format!("{}/.todo_notes/config.toml", home_dir))
+      .open(format!("{}/.todo_notes/config.toml", config_dir))
       .unwrap();
     
     let mut buf = String::new();
     config.read_to_string(&mut buf).unwrap();
 
-    let list = format!("\n{}={}/.todo_notes/{}.txt", list_name, home_dir, list_name.to_lowercase());
+    let list = format!("\n{}={}/.todo_notes/{}.txt", list_name, config_dir, list_name.to_lowercase());
 
     // write list name, or append with a newline if the file is not empty
     match buf.lines().nth(0) {
@@ -109,19 +108,24 @@ impl Command {
     };
 
     // create the task list
-    fs::File::create(format!("{}/.todo_notes/{}.txt", home_dir, list_name)).unwrap();
+    fs::File::create(format!("{}/.todo_notes/{}.txt", config_dir, list_name)).unwrap();
 
-    String::from(format!("{}/.todo_notes/{}.txt", home_dir, list_name.to_lowercase()))
+    String::from(format!("{}/.todo_notes/{}.txt", config_dir, list_name.to_lowercase()))
   }
 
   fn get_config() -> Result<String, ()> {
-    // attempt to find a config file in the users $HOME directory
+    // get the defined config file path, or use the default path
+    let home_dir = home_dir().unwrap();
+    let config_path = env::var("XDG_CONFIG_HOME").unwrap_or_else(|_| {
+      String::from(format!("{}/.config", home_dir.display()))
+    });
+    
+    // attempt to find a config file in the users config file path
     // and create one with a default task list if unsuccessful
     let list = String::from("DEFAULT");
-    let home_dir = home_dir().unwrap();
-    let mut config_file = fs::File::open(format!("{}/.todo_notes/config.toml", home_dir.display())).unwrap_or_else(|_| {
-      Self::create_config_file(&home_dir.display(), &list);
-      fs::File::open(format!("{}/.todo_notes/config.toml", home_dir.display())).unwrap()
+    let mut config_file = fs::File::open(format!("{}/.todo_notes/config.toml", config_path)).unwrap_or_else(|_| {
+      Self::create_config_file(&config_path, &list);
+      fs::File::open(format!("{}/.todo_notes/config.toml", config_path)).unwrap()
     });
 
     let mut buf = String::new();
@@ -139,7 +143,7 @@ impl Command {
     }
 
     if list_name.len() == 0 {
-      list_name = Self::add_list_to_config(&home_dir.display(), &list);
+      list_name = Self::add_list_to_config(&config_path, &list);
     }
 
     Ok(list_name)

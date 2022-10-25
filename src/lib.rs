@@ -76,15 +76,6 @@ impl Command {
       }
     }
   }
-  
-  fn create_config_file(config_dir: &str, default_list: &str) {
-    println!("Creating directory: \"{}/.todo_notes\"", config_dir);
-    fs::create_dir_all(format!("{}/.todo_notes", config_dir)).unwrap_or_else(|err| {
-      eprintln!("Error creating \"{}/.todo_notes\" directory: {}", config_dir, err);
-      process::exit(1);
-    });
-    Self::add_list_to_config(config_dir, default_list);
-  }
 
   fn add_list_to_config(config_dir: &str, list_name: &str) -> String {
     println!("Creating task file: \"{config_dir}/.todo_notes/{}.txt\"", list_name.to_lowercase());
@@ -121,17 +112,32 @@ impl Command {
     })
   }
 
-  fn get_config() -> Result<String, ()> {
+  fn get_config_file_handle(config_path: &str, default_list: &str) -> fs::File {
+    fs::File::open(format!("{}/.todo_notes/config.toml", config_path)).unwrap_or_else(|_| {
+      Self::create_config_file(&config_path, &default_list);
+      fs::File::open(format!("{}/.todo_notes/config.toml", config_path)).unwrap_or_else(|err| {
+        eprintln!("Error opening \"{}/.todo_notes\" directory: {}", &config_path, err);
+        process::exit(1);
+      })
+    })
+  }
 
-    let config_path = Self::get_user_config_dir();
+  fn create_config_file(config_dir: &str, default_list: &str) {
+    println!("Creating directory: \"{}/.todo_notes\"", config_dir);
+    fs::create_dir_all(format!("{}/.todo_notes", config_dir)).unwrap_or_else(|err| {
+      eprintln!("Error creating \"{}/.todo_notes\" directory: {}", config_dir, err);
+      process::exit(1);
+    });
+    Self::add_list_to_config(config_dir, default_list);
+  }
+
+  fn get_config() -> Result<String, ()> {
 
     // attempt to find a config file in the users config file path
     // and create one with a default task list if unsuccessful
     let list = String::from("DEFAULT");
-    let mut config_file = fs::File::open(format!("{}/.todo_notes/config.toml", config_path)).unwrap_or_else(|_| {
-      Self::create_config_file(&config_path, &list);
-      fs::File::open(format!("{}/.todo_notes/config.toml", config_path)).unwrap()
-    });
+    let config_path = Self::get_user_config_dir();
+    let mut config_file = Self::get_config_file_handle(&config_path, &list);
 
     let mut buf = String::new();
     config_file.read_to_string(&mut buf).unwrap();

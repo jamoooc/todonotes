@@ -201,7 +201,23 @@ impl Command {
       Err(f) => {
         match f {
           getopts::Fail::ArgumentMissing(f) => {
-            eprintln!("{}", getopts::Fail::ArgumentMissing(f));
+            eprintln!("Error: {}", getopts::Fail::ArgumentMissing(f));
+            process::exit(1);
+          },
+          getopts::Fail::UnrecognizedOption(f) => {
+            eprintln!("Error: {}", getopts::Fail::UnrecognizedOption(f));
+            process::exit(1);
+          },
+          getopts::Fail::OptionMissing(f) => {
+            eprintln!("Error: {}", getopts::Fail::OptionMissing(f));
+            process::exit(1);
+          },
+          getopts::Fail::OptionDuplicated(f) => {
+            eprintln!("Error: {}", getopts::Fail::OptionDuplicated(f));
+            process::exit(1);
+          },
+          getopts::Fail::UnexpectedArgument(f) => {
+            eprintln!("Error: {}", getopts::Fail::UnexpectedArgument(f));
             process::exit(1);
           },
           _ => panic!("Error: {}", f.to_string())

@@ -140,7 +140,7 @@ impl Command {
     let mut config_file = Self::get_config_file_handle(&config_path, &list);
 
     // if the user is in a git repo, create/use a task list for this
-    // dir referenced by the uppercased repo name in the config
+    // dir referenced by the uppercased repo name in their config
     let list = match Self::get_repo_name() {
       Some(repo) => repo,
       None => list

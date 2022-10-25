@@ -132,7 +132,6 @@ impl Command {
   }
 
   fn get_config() -> Result<String, ()> {
-
     // attempt to find a config file in the users config file path,
     // if unsuccessful create the config and a default task list
     let list = String::from("DEFAULT");

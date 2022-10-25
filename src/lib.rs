@@ -198,7 +198,15 @@ impl Command {
     // parse options
     let matches = match opts.parse(&args[1..]) {
       Ok(m) => { m }
-      Err(f) => { panic!("{}", f.to_string()) }
+      Err(f) => {
+        match f {
+          getopts::Fail::ArgumentMissing(f) => {
+            eprintln!("{}", getopts::Fail::ArgumentMissing(f));
+            process::exit(1);
+          },
+          _ => panic!("Error: {}", f.to_string())
+        }
+      }
     };
 
     // exit with usage info if the options include help 

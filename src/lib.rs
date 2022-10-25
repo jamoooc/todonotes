@@ -139,15 +139,15 @@ impl Command {
     let config_path = Self::get_user_config_dir();
     let mut config_file = Self::get_config_file_handle(&config_path, &list);
 
-    let mut buf = String::new();
-    config_file.read_to_string(&mut buf).unwrap();
-
     // if the user is in a git repo, create/use a task list for this
     // dir referenced by the uppercased repo name in the config
     let list = match Self::get_repo_name() {
       Some(repo) => repo,
       None => list
     };
+
+    let mut buf = String::new();
+    config_file.read_to_string(&mut buf).unwrap();
 
     let mut list_name = String::new();
     for line in buf.lines() {

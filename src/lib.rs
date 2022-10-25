@@ -140,7 +140,8 @@ impl Command {
     let mut config_file = Self::get_config_file_handle(&config_path, &list);
 
     // if the user is in a git repo, create/use a task list for this
-    // dir referenced by the uppercased repo name in their config
+    // dir referenced by the uppercased repo name in their config,
+    // otherwise, use the default list
     let list = match Self::get_repo_name() {
       Some(repo) => repo,
       None => list
@@ -149,6 +150,7 @@ impl Command {
     let mut buf = String::new();
     config_file.read_to_string(&mut buf).unwrap();
 
+    // find the config line entry for the current list name 
     let mut list_name = String::new();
     for line in buf.lines() {
       if line.starts_with(&list) {
@@ -156,6 +158,7 @@ impl Command {
       }
     }
 
+    // if the list doesn't exist, add it to their config and create the list
     if list_name.len() == 0 {
       list_name = Self::add_list_to_config(&config_path, &list);
     }

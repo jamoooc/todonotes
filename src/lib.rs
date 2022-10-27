@@ -187,7 +187,7 @@ impl Command {
     Command::new(cmd, arg, path)
   }
 
-  pub fn parse_args(program: &str, args: &Vec<String>) -> Command {
+  pub fn parse_args(program: &str, args: &Vec<String>) -> Result<Command, getopts::Fail> {
     // define command line options
     let mut opts = Options::new();
     opts.optopt("a", "add", "Add \"list item\"", "");
@@ -201,24 +201,19 @@ impl Command {
       Err(f) => {
         match f {
           getopts::Fail::ArgumentMissing(f) => {
-            eprintln!("Error: {}", getopts::Fail::ArgumentMissing(f));
-            process::exit(1);
+            return Err(getopts::Fail::ArgumentMissing(f));
           },
           getopts::Fail::UnrecognizedOption(f) => {
-            eprintln!("Error: {}", getopts::Fail::UnrecognizedOption(f));
-            process::exit(1);
+            return Err(getopts::Fail::UnrecognizedOption(f));
           },
           getopts::Fail::OptionMissing(f) => {
-            eprintln!("Error: {}", getopts::Fail::OptionMissing(f));
-            process::exit(1);
+            return Err(getopts::Fail::OptionMissing(f));
           },
           getopts::Fail::OptionDuplicated(f) => {
-            eprintln!("Error: {}", getopts::Fail::OptionDuplicated(f));
-            process::exit(1);
+            return Err(getopts::Fail::OptionDuplicated(f));
           },
           getopts::Fail::UnexpectedArgument(f) => {
-            eprintln!("Error: {}", getopts::Fail::UnexpectedArgument(f));
-            process::exit(1);
+            return Err(getopts::Fail::UnexpectedArgument(f));
           }
         }
       }
@@ -237,7 +232,7 @@ impl Command {
     }
 
     // create a Command struct with the option
-    Self::get_command(matches)
+    Ok(Self::get_command(matches))
   }
 
   fn add_list_item(command: Command) {

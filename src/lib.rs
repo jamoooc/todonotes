@@ -1,6 +1,7 @@
 extern crate getopts;
 use getopts::Options;
 use std::env;
+use std::error::Error;
 use std::{process, fs};
 use std::io::{Read, Write};
 use regex::Regex;
@@ -328,11 +329,12 @@ impl Command {
     }
   }
 
-  pub fn run(command: Command) {
+  pub fn run(command: Command) -> Result<(), Box<dyn Error>> {
     match command.cmd {
       CommandType::Add => Self::add_list_item(command),
       CommandType::List => Self::print_list_items(command),
       CommandType::Delete => Self::delete_list_item(command),
     }
+    Ok(())
   }
 }

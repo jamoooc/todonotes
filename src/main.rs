@@ -13,5 +13,8 @@ fn main() {
     }
   };
 
-  Command::run(command);
+  if let Err(e) = Command::run(command) {
+    println!("Application command error: {e}");
+    process::exit(1);
+  };
 }

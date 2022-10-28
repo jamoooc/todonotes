@@ -308,7 +308,7 @@ impl Command {
     let mut t: Vec<&str> = buf.lines().collect();
     t.remove(nitem - 1);
 
-    let item_num_regex = match Regex::new(r"^\d{1,2}\. ") {
+    let item_num_regex = match Regex::new(r"^(\d{1,2}\. )([^']+)") {
       Ok(re) => re,
       Err(e) => panic!("Error creating regular expression: {e}")
     };
@@ -317,11 +317,23 @@ impl Command {
     // if it's > than the deleted item. This will become our new file
     let mut new_items: Vec<String> = Vec::new();
     for item in &t {
-      let item_str = item_num_regex.split(item).nth(1).unwrap();
+      // split the item string into it's num and text with capture groups 
+      let caps = match item_num_regex.captures(item) {
+        Some(caps) => caps,
+        None => panic!("Error processing list item")
+      };
       
-      let item_num: usize = item.split('.').nth(0).unwrap().parse().unwrap();
-      let item_num = if item_num > nitem { item_num - 1 } else { item_num };
+      let item_str = caps.get(2).unwrap().as_str();
+      let item_num: usize = caps
+        .get(1)
+        .unwrap()
+        .as_str()
+        .trim_matches(|c| c == '.' || c == ' ')
+        .parse()
+        .unwrap();
 
+      // if the item number is > that the removed item, decrement it's num
+      let item_num = if item_num > nitem { item_num - 1 } else { item_num };
       new_items.push(format!("{:0>2}. {}", item_num, item_str));
     }
 

@@ -1,6 +1,7 @@
 extern crate getopts;
 use getopts::Options;
 use std::env;
+use std::path;
 use std::error::Error;
 use std::{process, fs};
 use std::io::{Read, Write};
@@ -236,15 +237,20 @@ impl Command {
     Ok(Self::get_command(matches))
   }
 
-  fn add_list_item(command: Command) {
-    let mut file = fs::File::options()
+  fn add_list_item(command: Command) -> Result<(), std::io::Error>  {
+
+    let mut file = match fs::File::options()
       .append(true)
       .read(true)
-      .open(&command.path)
-      .unwrap();
+      .open(&command.path) {
+        Ok(file) => file,
+        Err(e) => return Err(e)
+    };
   
     let mut buf = String::new();
-    file.read_to_string(&mut buf).unwrap();
+    if let Err(e) = file.read_to_string(&mut buf) {
+      return Err(e);
+    };
 
     let nlines = buf.lines().count();
     let item = format!("\n{:0>2}. {}", nlines + 1, command.arg);
@@ -254,33 +260,41 @@ impl Command {
         // append item with a newline if the file is not empty
         match file.write(item.as_bytes()) {
           Ok(n) => n,
-          Err(e) => panic!("Error writing to file: {e}")
+          Err(e) => return Err(e)
         };
       },
       None => {
         // trim the newline if we're adding the first item
         match file.write(item.trim_start().as_bytes()) {
           Ok(n) => n,
-          Err(e) => panic!("Error writing to file: {e}")
+          Err(e) => return Err(e)
         };
       }
     };
 
     println!("Added new item: {}", item.trim_start());
-    Self::print_list_items(command);
+    if let Err(e) = Self::print_list_items(command)  { 
+      return Err(e);
+    };
+    Ok(())
   }
 
-  fn delete_list_item(command: Command) {
+  fn delete_list_item(command: Command) -> Result<(), std::io::Error>  {
+
     // open the file for read/write
-    let mut file = fs::File::options()
+    let mut file = match fs::File::options()
       .write(true)
       .read(true)
-      .open(&command.path)
-      .unwrap();
+      .open(&command.path)  {
+        Ok(file) => file,
+        Err(e) => return Err(e)
+    };
   
     // read the file into a buffer
     let mut buf = String::new();
-    file.read_to_string(&mut buf).unwrap();
+    if let Err(e) = file.read_to_string(&mut buf) {
+      return Err(e);
+    }
     
     // count and check the number of items
     let nitem: usize = command.arg.parse().unwrap();
@@ -295,9 +309,13 @@ impl Command {
     let mut t: Vec<&str> = buf.lines().collect();
     t.remove(nitem - 1);
 
+    let item_num_regex = match Regex::new(r"^\d{1,2}\. ") {
+      Ok(re) => re,
+      Err(e) => panic!("Error creating regular expression: {e}")
+    };
+
     // step through creating new strings and increment the item number
     // if it's > than the deleted item. This will become our new file
-    let item_num_regex = Regex::new(r"^\d{1,2}\. ").unwrap();
     let mut new_items: Vec<String> = Vec::new();
     for item in &t {
       let item_str = item_num_regex.split(item).nth(1).unwrap();
@@ -309,31 +327,41 @@ impl Command {
     }
 
     // open the file, trucating to length 0 and write the updated item list
-    let mut file = fs::File::options()
+    let mut file = match fs::File::options()
       .write(true)
       .truncate(true)
-      .open(&command.path)
-      .unwrap();
-    file.write(&new_items.join("\n").as_bytes()).unwrap();
+      .open(&command.path) {
+        Ok(file) => file,
+        Err(e) => return Err(e)
+    };
+
+    if let Err(e) = file.write(&new_items.join("\n").as_bytes()) {
+      return Err(e);
+    }
   
     println!("Deleted list item: {}", nitem);
-    Self::print_list_items(command);
+    if let Err(e) = Self::print_list_items(command)  { 
+      return Err(e);
+    };
+    Ok(())
   }
-  
-  fn print_list_items(command: Command) {
-    let contents = fs::read_to_string(command.path).unwrap_or_else(|e| { 
-      panic!("Error opening file: {e}");
-    });
+
+  fn print_list_items(command: Command) -> Result<(), std::io::Error> {
+    let contents = match fs::read_to_string(command.path) { 
+      Ok(content) => content,
+      Err(e) => return Err(e)
+    };
     for line in contents.lines() {
       println!("{line}");
     }
+    Ok(())
   }
 
   pub fn run(command: Command) -> Result<(), Box<dyn Error>> {
     match command.cmd {
-      CommandType::Add => Self::add_list_item(command),
-      CommandType::List => Self::print_list_items(command),
-      CommandType::Delete => Self::delete_list_item(command),
+      CommandType::Add => Self::add_list_item(command)?,
+      CommandType::List => Self::print_list_items(command)?,
+      CommandType::Delete => Self::delete_list_item(command)?,
     }
     Ok(())
   }

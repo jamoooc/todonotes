@@ -14,7 +14,7 @@ fn main() {
   };
 
   if let Err(e) = Command::run(command) {
-    eprintln!("Application command error: {e}");
+    eprintln!("Application command error: {e:?}");
     process::exit(1);
   };
 }

@@ -1,7 +1,6 @@
 extern crate getopts;
 use getopts::Options;
 use std::env;
-use std::path;
 use std::error::Error;
 use std::{process, fs};
 use std::io::{Read, Write};

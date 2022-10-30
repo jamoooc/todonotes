@@ -1,8 +1,8 @@
 use std::env;
 use std::process;
 
-use todo_notes::config;
-use todo_notes::cmd;
+use todo_notes::config::config;
+use todo_notes::cmd::cmd;
 
 fn main() {
   let args: Vec<String> = env::args().collect();

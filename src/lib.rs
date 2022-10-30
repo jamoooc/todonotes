@@ -1,32 +1,63 @@
 extern crate getopts;
-use getopts::Options;
-use std::env;
-use std::error::Error;
-use std::{process, fs};
-use std::io::{Read, Write};
-use regex::Regex;
-use dirs::home_dir;
-use git2::Repository;
 
-#[derive(Debug)]
-enum CommandType {
-  Add,
-  List,
-  Delete,
-}
+pub mod config {
 
-#[derive(Debug)]
-pub struct Command {
-  cmd: CommandType,
-  arg: String,
-  path: String
-}
+  use getopts::Options;
+  use std::{process, env, fs};
+  use dirs::home_dir;
+  use git2::Repository;
+  use std::io::{Read, Write};
+  
+  use super::cmd::Command;
 
-impl Command {
+  pub fn parse_args(program: &str, args: &Vec<String>) -> Result<Command, getopts::Fail> {
+    // define command line options
+    let mut opts = Options::new();
+    opts.optopt("a", "add", "Add \"list item\"", "");
+    opts.optflag("l", "list", "List all items");
+    opts.optopt("d", "delete", "Delete list item \"n\"", "");
+    opts.optflag("h", "help", "Display usage info");
 
-  fn new(cmd: CommandType, arg: String, path: String) -> Command {
-    Command { cmd, arg, path }
+    // parse options
+    let matches = match opts.parse(&args[1..]) {
+      Ok(m) => { m }
+      Err(f) => {
+        match f {
+          getopts::Fail::ArgumentMissing(f) => {
+            return Err(getopts::Fail::ArgumentMissing(f));
+          },
+          getopts::Fail::UnrecognizedOption(f) => {
+            return Err(getopts::Fail::UnrecognizedOption(f));
+          },
+          getopts::Fail::OptionMissing(f) => {
+            return Err(getopts::Fail::OptionMissing(f));
+          },
+          getopts::Fail::OptionDuplicated(f) => {
+            return Err(getopts::Fail::OptionDuplicated(f));
+          },
+          getopts::Fail::UnexpectedArgument(f) => {
+            return Err(getopts::Fail::UnexpectedArgument(f));
+          }
+        }
+      }
+    };
+
+    // exit with usage info if the options include help 
+    if matches.opt_present("h") {
+      print_usage(&program, &opts);
+      process::exit(0);
+    }
+
+    // exit with the usage information if there are remaining arguments
+    if !matches.free.is_empty() {
+      print_usage(&program, &opts);
+      process::exit(1);
+    }
+
+    // create a Command struct with the option
+    Ok(Command::get_command(matches))
   }
+
 
   fn print_usage(program: &str, opts: &Options) {
     let brief = format!("\nUsage: ./{} [options]", program);
@@ -116,7 +147,7 @@ impl Command {
   // get a handle to the user's config file, or create one if it doesn't exist
   fn get_config_file_handle(config_path: &str, default_list: &str) -> fs::File {
     fs::File::open(format!("{}/.todo_notes/config.toml", config_path)).unwrap_or_else(|_| {
-      Self::create_config_file(&config_path, &default_list);
+      create_config_file(&config_path, &default_list);
       fs::File::open(format!("{}/.todo_notes/config.toml", config_path)).unwrap_or_else(|err| {
         eprintln!("Error opening \"{}/.todo_notes\" directory: {}", &config_path, err);
         process::exit(1);
@@ -131,20 +162,20 @@ impl Command {
       eprintln!("Error creating \"{}/.todo_notes\" directory: {}", config_dir, err);
       process::exit(1);
     });
-    Self::add_list_to_config(config_dir, default_list);
+    add_list_to_config(config_dir, default_list);
   }
 
-  fn get_config() -> Result<String, ()> {
+  pub fn get_list_name() -> Result<String, ()> {
     // attempt to find a config file in the users config file path,
     // if unsuccessful create the config and a default task list
     let list = String::from("DEFAULT");
-    let config_path = Self::get_user_config_dir();
-    let mut config_file = Self::get_config_file_handle(&config_path, &list);
+    let config_path = get_user_config_dir();
+    let mut config_file = get_config_file_handle(&config_path, &list);
 
     // if the user is in a git repo, create/use a task list for this
     // dir referenced by the uppercased repo name in their config,
     // otherwise, use the default list
-    let list = match Self::get_repo_name() {
+    let list = match get_repo_name() {
       Some(repo) => repo,
       None => list
     };
@@ -162,218 +193,204 @@ impl Command {
 
     // if the list doesn't exist, add it to their config and create the list
     if list_name.len() == 0 {
-      list_name = Self::add_list_to_config(&config_path, &list);
+      list_name = add_list_to_config(&config_path, &list);
     }
 
     Ok(list_name)
   }
 
-  fn get_command(matches: getopts::Matches) -> Command {
-    let cmd: CommandType;
-    let mut arg = String::from("");
+}
 
-    if matches.opt_present("a") {
-      cmd = CommandType::Add;
-      arg = String::from(matches.opt_str("a").unwrap());
-    } else if matches.opt_present("d") {
-      cmd = CommandType::Delete;
-      arg = String::from(matches.opt_str("d").unwrap());
-    } else if matches.opt_present("l") {
-      cmd = CommandType::List;
-    } else {
-      process::exit(1);
-    }
 
-    let path = Self::get_config().unwrap();
-    Command::new(cmd, arg, path)
+pub mod cmd {
+
+  use std::error::Error;
+  use std::{process, fs};
+  use std::io::{Read, Write};
+  use regex::Regex;
+
+  use super::config;
+
+  #[derive(Debug)]
+  enum CommandType {
+    Add,
+    List,
+    Delete,
   }
 
-  pub fn parse_args(program: &str, args: &Vec<String>) -> Result<Command, getopts::Fail> {
-    // define command line options
-    let mut opts = Options::new();
-    opts.optopt("a", "add", "Add \"list item\"", "");
-    opts.optflag("l", "list", "List all items");
-    opts.optopt("d", "delete", "Delete list item \"n\"", "");
-    opts.optflag("h", "help", "Display usage info");
+  #[derive(Debug)]
+  pub struct Command {
+    cmd: CommandType,
+    arg: String,
+    path: String
+  }
 
-    // parse options
-    let matches = match opts.parse(&args[1..]) {
-      Ok(m) => { m }
-      Err(f) => {
-        match f {
-          getopts::Fail::ArgumentMissing(f) => {
-            return Err(getopts::Fail::ArgumentMissing(f));
-          },
-          getopts::Fail::UnrecognizedOption(f) => {
-            return Err(getopts::Fail::UnrecognizedOption(f));
-          },
-          getopts::Fail::OptionMissing(f) => {
-            return Err(getopts::Fail::OptionMissing(f));
-          },
-          getopts::Fail::OptionDuplicated(f) => {
-            return Err(getopts::Fail::OptionDuplicated(f));
-          },
-          getopts::Fail::UnexpectedArgument(f) => {
-            return Err(getopts::Fail::UnexpectedArgument(f));
-          }
-        }
+  impl Command {
+
+    fn new(cmd: CommandType, arg: String, path: String) -> Command {
+      Command { cmd, arg, path }
+    }
+
+    pub fn get_command(matches: getopts::Matches) -> Command {
+      let cmd: CommandType;
+      let mut arg = String::from("");
+
+      if matches.opt_present("a") {
+        cmd = CommandType::Add;
+        arg = String::from(matches.opt_str("a").unwrap());
+      } else if matches.opt_present("d") {
+        cmd = CommandType::Delete;
+        arg = String::from(matches.opt_str("d").unwrap());
+      } else if matches.opt_present("l") {
+        cmd = CommandType::List;
+      } else {
+        process::exit(1);
       }
-    };
 
-    // exit with usage info if the options include help 
-    if matches.opt_present("h") {
-      Self::print_usage(&program, &opts);
-      process::exit(0);
+      let path = config::get_list_name().unwrap();
+      Command::new(cmd, arg, path)
     }
 
-    // exit with the usage information if there are remaining arguments
-    if !matches.free.is_empty() {
-      Self::print_usage(&program, &opts);
-      process::exit(1);
-    }
 
-    // create a Command struct with the option
-    Ok(Self::get_command(matches))
-  }
+    fn add_list_item(command: Command) -> Result<(), std::io::Error>  {
 
-  fn add_list_item(command: Command) -> Result<(), std::io::Error>  {
-
-    let mut file = match fs::File::options()
-      .append(true)
-      .read(true)
-      .open(&command.path) {
-        Ok(file) => file,
-        Err(e) => return Err(e)
-    };
-  
-    let mut buf = String::new();
-    if let Err(e) = file.read_to_string(&mut buf) {
-      return Err(e);
-    };
-
-    let nlines = buf.lines().count();
-    let item = format!("\n{:0>2}. {}", nlines + 1, command.arg);
-
-    match buf.lines().nth(0) {
-      Some(_) => {
-        // append item with a newline if the file is not empty
-        match file.write(item.as_bytes()) {
-          Ok(n) => n,
+      let mut file = match fs::File::options()
+        .append(true)
+        .read(true)
+        .open(&command.path) {
+          Ok(file) => file,
           Err(e) => return Err(e)
-        };
-      },
-      None => {
-        // trim the newline if we're adding the first item
-        match file.write(item.trim_start().as_bytes()) {
-          Ok(n) => n,
-          Err(e) => return Err(e)
-        };
-      }
-    };
-
-    println!("Added new item: {}", item.trim_start());
-    if let Err(e) = Self::print_list_items(command)  { 
-      return Err(e);
-    };
-    Ok(())
-  }
-
-  fn delete_list_item(command: Command) -> Result<(), std::io::Error>  {
-
-    // open the file for read/write
-    let mut file = match fs::File::options()
-      .write(true)
-      .read(true)
-      .open(&command.path)  {
-        Ok(file) => file,
-        Err(e) => return Err(e)
-    };
-  
-    // read the file into a buffer
-    let mut buf = String::new();
-    if let Err(e) = file.read_to_string(&mut buf) {
-      return Err(e);
-    }
-    
-    // count and check the number of items
-    let nitem: usize = command.arg.parse().unwrap();
-    let nlines: usize = buf.lines().count();
-  
-    if nitem > nlines {
-      println!("List item number exceeds list length.");
-      process::exit(1);
-    }
-  
-    // split into a vector of individual items (lines) and remove the nth item
-    let mut t: Vec<&str> = buf.lines().collect();
-    t.remove(nitem - 1);
-
-    let item_num_regex = match Regex::new(r"^(\d{1,2}\. )([^']+)") {
-      Ok(re) => re,
-      Err(e) => panic!("Error creating regular expression: {e}")
-    };
-
-    // step through creating new strings and increment the item number
-    // if it's > than the deleted item. This will become our new file
-    let mut new_items: Vec<String> = Vec::new();
-    for item in &t {
-      // split the item string into it's num and text with capture groups 
-      let caps = match item_num_regex.captures(item) {
-        Some(caps) => caps,
-        None => panic!("Error processing list item")
       };
+    
+      let mut buf = String::new();
+      if let Err(e) = file.read_to_string(&mut buf) {
+        return Err(e);
+      };
+
+      let nlines = buf.lines().count();
+      let item = format!("\n{:0>2}. {}", nlines + 1, command.arg);
+
+      match buf.lines().nth(0) {
+        Some(_) => {
+          // append item with a newline if the file is not empty
+          match file.write(item.as_bytes()) {
+            Ok(n) => n,
+            Err(e) => return Err(e)
+          };
+        },
+        None => {
+          // trim the newline if we're adding the first item
+          match file.write(item.trim_start().as_bytes()) {
+            Ok(n) => n,
+            Err(e) => return Err(e)
+          };
+        }
+      };
+
+      println!("Added new item: {}", item.trim_start());
+      if let Err(e) = Self::print_list_items(command)  { 
+        return Err(e);
+      };
+      Ok(())
+    }
+
+    fn delete_list_item(command: Command) -> Result<(), std::io::Error>  {
+
+      // open the file for read/write
+      let mut file = match fs::File::options()
+        .write(true)
+        .read(true)
+        .open(&command.path)  {
+          Ok(file) => file,
+          Err(e) => return Err(e)
+      };
+    
+      // read the file into a buffer
+      let mut buf = String::new();
+      if let Err(e) = file.read_to_string(&mut buf) {
+        return Err(e);
+      }
       
-      let item_str = caps.get(2).unwrap().as_str();
-      let item_num: usize = caps
-        .get(1)
-        .unwrap()
-        .as_str()
-        .trim_matches(|c| c == '.' || c == ' ')
-        .parse()
-        .unwrap();
+      // count and check the number of items
+      let nitem: usize = command.arg.parse().unwrap();
+      let nlines: usize = buf.lines().count();
+    
+      if nitem > nlines {
+        println!("List item number exceeds list length.");
+        process::exit(1);
+      }
+    
+      // split into a vector of individual items (lines) and remove the nth item
+      let mut t: Vec<&str> = buf.lines().collect();
+      t.remove(nitem - 1);
 
-      // if the item number is > that the removed item, decrement it's num
-      let item_num = if item_num > nitem { item_num - 1 } else { item_num };
-      new_items.push(format!("{:0>2}. {}", item_num, item_str));
+      let item_num_regex = match Regex::new(r"^(\d{1,2}\. )([^']+)") {
+        Ok(re) => re,
+        Err(e) => panic!("Error creating regular expression: {e}")
+      };
+
+      // step through creating new strings and increment the item number
+      // if it's > than the deleted item. This will become our new file
+      let mut new_items: Vec<String> = Vec::new();
+      for item in &t {
+        // split the item string into it's num and text with capture groups 
+        let caps = match item_num_regex.captures(item) {
+          Some(caps) => caps,
+          None => panic!("Error processing list item")
+        };
+        
+        let item_str = caps.get(2).unwrap().as_str();
+        let item_num: usize = caps
+          .get(1)
+          .unwrap()
+          .as_str()
+          .trim_matches(|c| c == '.' || c == ' ')
+          .parse()
+          .unwrap();
+
+        // if the item number is > that the removed item, decrement it's num
+        let item_num = if item_num > nitem { item_num - 1 } else { item_num };
+        new_items.push(format!("{:0>2}. {}", item_num, item_str));
+      }
+
+      // open the file, trucating to length 0 and write the updated item list
+      let mut file = match fs::File::options()
+        .write(true)
+        .truncate(true)
+        .open(&command.path) {
+          Ok(file) => file,
+          Err(e) => return Err(e)
+      };
+
+      if let Err(e) = file.write(&new_items.join("\n").as_bytes()) {
+        return Err(e);
+      }
+    
+      println!("Deleted list item: {}", nitem);
+      if let Err(e) = Self::print_list_items(command)  { 
+        return Err(e);
+      };
+      Ok(())
     }
 
-    // open the file, trucating to length 0 and write the updated item list
-    let mut file = match fs::File::options()
-      .write(true)
-      .truncate(true)
-      .open(&command.path) {
-        Ok(file) => file,
+    fn print_list_items(command: Command) -> Result<(), std::io::Error> {
+      let contents = match fs::read_to_string(command.path) { 
+        Ok(content) => content,
         Err(e) => return Err(e)
-    };
-
-    if let Err(e) = file.write(&new_items.join("\n").as_bytes()) {
-      return Err(e);
+      };
+      for line in contents.lines() {
+        println!("{line}");
+      }
+      Ok(())
     }
-  
-    println!("Deleted list item: {}", nitem);
-    if let Err(e) = Self::print_list_items(command)  { 
-      return Err(e);
-    };
-    Ok(())
-  }
 
-  fn print_list_items(command: Command) -> Result<(), std::io::Error> {
-    let contents = match fs::read_to_string(command.path) { 
-      Ok(content) => content,
-      Err(e) => return Err(e)
-    };
-    for line in contents.lines() {
-      println!("{line}");
+    pub fn run(command: Command) -> Result<(), Box<dyn Error>> {
+      match command.cmd {
+        CommandType::Add => Self::add_list_item(command)?,
+        CommandType::List => Self::print_list_items(command)?,
+        CommandType::Delete => Self::delete_list_item(command)?,
+      }
+      Ok(())
     }
-    Ok(())
-  }
-
-  pub fn run(command: Command) -> Result<(), Box<dyn Error>> {
-    match command.cmd {
-      CommandType::Add => Self::add_list_item(command)?,
-      CommandType::List => Self::print_list_items(command)?,
-      CommandType::Delete => Self::delete_list_item(command)?,
-    }
-    Ok(())
   }
 }

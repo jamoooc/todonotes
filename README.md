@@ -17,10 +17,10 @@ Options:
 ```
 $ ./todo_notes -a "first item"`
 
-Creating directory: "/Users/jamoooc/.todo_notes"
-Creating task file: "/Users/jamoooc/.todo_notes/default.txt"
+Creating directory: "/$HOME/.config/.todo_notes"
+Creating task file: "/$HOME/.config/.todo_notes/default.txt"
 Found git repository. Using todo list: todo_notes
-Creating task file: "/Users/jamoooc/.todo_notes/todo_notes.txt"
+Creating task file: "/$HOME/.config/.todo_notes/todo_notes.txt"
 Added new item: 01. first item
 01. first item
 ```

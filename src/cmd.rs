@@ -153,7 +153,7 @@ impl Command {
       };
       
       let item_str = caps.get(2).unwrap().as_str();
-      new_items.push(format!("{:0>2}. {}", i, item_str));
+      new_items.push(format!("{:0>2}. {}", i + 1, item_str));
     }
 
     // open the file, trucate and write the updated item list

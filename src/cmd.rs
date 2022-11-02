@@ -119,14 +119,13 @@ impl Command {
     item_numbers.sort_by(|a,b| b.cmp(a));
     item_numbers.dedup();
 
-    // get the max list num and check we have enough items to remove
+    // get the max list num and check it doesn't exceed the total items
+    let nlines: usize = buf.lines().count();
     let max_item = match item_numbers.iter().max() {
       Some(max) => max,
       None => panic!("Unable to determine maximum list item")
     };
 
-    // count and check the number of items
-    let nlines: usize = buf.lines().count();
     if *max_item > nlines {
       println!("List item number exceeds list length.");
       process::exit(1);
@@ -145,10 +144,9 @@ impl Command {
     };
 
     // step through creating new strings and incrementing the item
-    // number, this will become our new file.
+    // number, this will become our new file
     let mut new_items: Vec<String> = Vec::new();
     for (i, item) in t.iter().enumerate() {
-      // capture the item text from
       let caps = match item_num_regex.captures(item) {
         Some(caps) => caps,
         None => panic!("Error processing list item")

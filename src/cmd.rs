@@ -105,49 +105,60 @@ impl Command {
       return Err(e);
     }
     
+    // collect the list items to delete in a vector
+    let mut item_numbers: Vec<usize> = command.arg
+      .split_whitespace()
+      .map(|x| match x.parse::<usize>() {
+        Ok(x) => x,
+        Err(e) => panic!("AHH {e}")
+      })
+      .collect();
+
+    // sort items in reverse so we don't affect indexing by 
+    // removing earlier items, and remove any duplicates
+    item_numbers.sort_by(|a,b| b.cmp(a));
+    item_numbers.dedup();
+
+    // get the max list num and check we have enough items to remove
+    let max_item = match item_numbers.iter().max() {
+      Some(max) => max,
+      None => panic!("Unable to determine maximum list item")
+    };
+
     // count and check the number of items
-    let nitem: usize = command.arg.parse().unwrap();
     let nlines: usize = buf.lines().count();
-  
-    if nitem > nlines {
+    if *max_item > nlines {
       println!("List item number exceeds list length.");
       process::exit(1);
     }
-  
-    // split into a vector of individual items (lines) and remove the nth item
+
+    // split current list into a vector of list items (lines)
+    // and remove each given item
     let mut t: Vec<&str> = buf.lines().collect();
-    t.remove(nitem - 1);
+    for n in item_numbers.iter() {
+      t.remove(n - 1);
+    }
 
     let item_num_regex = match Regex::new(r"^(\d{1,2}\. )([^']+)") {
       Ok(re) => re,
       Err(e) => panic!("Error creating regular expression: {e}")
     };
 
-    // step through creating new strings and increment the item number
-    // if it's > than the deleted item. This will become our new file
+    // step through creating new strings and incrementing the item
+    // number, this will become our new file.
     let mut new_items: Vec<String> = Vec::new();
-    for item in &t {
-      // split the item string into it's num and text with capture groups 
+    for (i, item) in t.iter().enumerate() {
+      // capture the item text from
       let caps = match item_num_regex.captures(item) {
         Some(caps) => caps,
         None => panic!("Error processing list item")
       };
       
       let item_str = caps.get(2).unwrap().as_str();
-      let item_num: usize = caps
-        .get(1)
-        .unwrap()
-        .as_str()
-        .trim_matches(|c| c == '.' || c == ' ')
-        .parse()
-        .unwrap();
-
-      // if the item number is > that the removed item, decrement it's num
-      let item_num = if item_num > nitem { item_num - 1 } else { item_num };
-      new_items.push(format!("{:0>2}. {}", item_num, item_str));
+      new_items.push(format!("{:0>2}. {}", i, item_str));
     }
 
-    // open the file, trucating to length 0 and write the updated item list
+    // open the file, trucate and write the updated item list
     let mut file = match fs::File::options()
       .write(true)
       .truncate(true)
@@ -160,10 +171,11 @@ impl Command {
       return Err(e);
     }
   
-    println!("Deleted list item: {}", nitem);
-    if let Err(e) = Self::print_list_items(command)  { 
+    println!("Deleted {} list items", item_numbers.len());
+    if let Err(e) = Self::print_list_items(command)  {
       return Err(e);
     };
+
     Ok(())
   }
 

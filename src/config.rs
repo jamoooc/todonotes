@@ -11,7 +11,7 @@ pub fn parse_args(program: &str, args: &Vec<String>) -> Result<Command, getopts:
   let mut opts = Options::new();
   opts.optopt("a", "add", "Add \"list item\"", "");
   opts.optflag("l", "list", "List all items");
-  opts.optopt("d", "delete", "Delete list item \"n\"", "");
+  opts.optopt("d", "delete", "Delete list item n, or items \"n n n\"", "");
   opts.optflag("h", "help", "Display usage info");
 
   // parse options

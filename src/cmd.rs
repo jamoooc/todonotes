@@ -10,6 +10,7 @@ enum CommandType {
   Add,
   List,
   Delete,
+  Reset,
 }
 
 #[derive(Debug)]
@@ -37,6 +38,8 @@ impl Command {
       arg = String::from(matches.opt_str("d").unwrap());
     } else if matches.opt_present("l") {
       cmd = CommandType::List;
+    } else if matches.opt_present("r") {
+      cmd = CommandType::Reset;
     } else {
       process::exit(1);
     }
@@ -184,6 +187,42 @@ impl Command {
     Ok(())
   }
 
+  fn reset_list(command: Command) -> Result<(), std::io::Error> {
+
+    // strip the list name from the path
+    let list_name_regex = match Regex::new(r"/([\w_]+).txt$") {
+      Ok(re) => re,
+      Err(e) => panic!("Error creating regular expression: {e}")
+    };
+
+    let caps = match list_name_regex.captures(&command.path) {
+      Some(caps) => caps,
+      None => panic!("Error getting list name")
+    };
+
+    let list_name = caps.get(1).unwrap().as_str();
+
+    // opening the file with the truncate option will set its length to 0
+    match fs::File::options()
+      .write(true)
+      .truncate(true)
+      .open(&command.path) {
+        Ok(file) => {
+          println!("List \"{}\" state reset.", list_name);
+          file
+        },
+        Err(e) => {
+          println!("Error resetting list: {}", list_name);
+          return Err(e)
+        }
+    };
+
+    if let Err(e) = Self::print_list_items(command)  {
+      return Err(e);
+    };
+    Ok(())
+  }
+
   fn print_list_items(command: Command) -> Result<(), std::io::Error> {
     let contents = match fs::read_to_string(command.path) { 
       Ok(content) => content,
@@ -200,6 +239,7 @@ impl Command {
       CommandType::Add => Self::add_list_item(command)?,
       CommandType::List => Self::print_list_items(command)?,
       CommandType::Delete => Self::delete_list_item(command)?,
+      CommandType::Reset => Self::reset_list(command)?,
     }
     Ok(())
   }

@@ -110,7 +110,7 @@ impl Command {
       .split_whitespace()
       .map(|x| match x.parse::<usize>() {
         Ok(x) => x,
-        Err(e) => panic!("AHH {e}")
+        Err(e) => panic!("Invalid item number format. {e}")
       })
       .collect();
 

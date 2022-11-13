@@ -9,8 +9,9 @@ Usage: ./todo_notes [options]
 
 Options:
     -a, --add           Add "list item"
-    -l, --list          List all items
-    -d, --delete        Delete list item n
+    -l, --list          Print all list items
+    -d, --delete        Delete item n, or items \"n n n\"
+    -r, --reset         Reset list state
     -h, --help          Display usage info
 ```
 
@@ -48,4 +49,11 @@ $ ./todo_notes -d 1
 Found git repository. Using todo list: todo_notes
 Deleted list item: 1
 01. second item
+```
+
+```
+$ ./todo_notes -r
+
+Found git repository. Using todo list: todo_notes
+List "todo_notes.txt" state reset.
 ```

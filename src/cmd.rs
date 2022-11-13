@@ -131,11 +131,13 @@ impl Command {
       process::exit(1);
     }
 
-    // split current list into a vector of list items (lines)
-    // and remove each given item
+    // split current list into a vector of list items (lines),
+    // remove each given item and store a reference to print
+    // the removed items
     let mut list_items: Vec<&str> = buf.lines().collect();
+    let mut removed_items: Vec<&str> = Vec::new();
     for n in item_numbers.iter() {
-      list_items.remove(n - 1);
+      removed_items.push(list_items.remove(n - 1));
     }
 
     let item_num_regex = match Regex::new(r"^(\d{1,2}\. )([^']+)") {
@@ -169,7 +171,12 @@ impl Command {
       return Err(e);
     }
   
-    println!("Deleted {} list items", item_numbers.len());
+    removed_items.reverse(); // order the items by item num
+    println!("Deleted {} list items:", item_numbers.len());
+    for item in removed_items.iter() {
+      println!("\t{}", item);
+    }
+
     if let Err(e) = Self::print_list_items(command)  {
       return Err(e);
     };

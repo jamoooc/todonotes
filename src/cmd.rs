@@ -133,9 +133,9 @@ impl Command {
 
     // split current list into a vector of list items (lines)
     // and remove each given item
-    let mut t: Vec<&str> = buf.lines().collect();
+    let mut list_items: Vec<&str> = buf.lines().collect();
     for n in item_numbers.iter() {
-      t.remove(n - 1);
+      list_items.remove(n - 1);
     }
 
     let item_num_regex = match Regex::new(r"^(\d{1,2}\. )([^']+)") {
@@ -146,7 +146,7 @@ impl Command {
     // step through creating new strings and incrementing the item
     // number, this will become our new file
     let mut new_items: Vec<String> = Vec::new();
-    for (i, item) in t.iter().enumerate() {
+    for (i, item) in list_items.iter().enumerate() {
       let caps = match item_num_regex.captures(item) {
         Some(caps) => caps,
         None => panic!("Error processing list item")

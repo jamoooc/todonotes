@@ -163,20 +163,24 @@ fn create_config_file(config_dir: &str, default_list: &str) {
   add_list_to_config(config_dir, default_list);
 }
 
-pub fn get_list_name() -> Result<String, ()> {
+pub fn get_list_name(provided_path: &str) -> Result<String, ()> {
   // attempt to find a config file in the users config file path,
   // if unsuccessful create the config and a default task list
-  let list = String::from("DEFAULT");
+  let mut list = String::from("DEFAULT");
   let config_path = get_user_config_dir();
   let mut config_file = get_config_file_handle(&config_path, &list);
 
   // if the user is in a git repo, create/use a task list for this
   // dir referenced by the uppercased repo name in their config,
   // otherwise, use the default list
-  let list = match get_repo_name() {
-    Some(repo) => repo,
-    None => list
-  };
+  if !provided_path.is_empty() {
+    list = provided_path.to_uppercase();
+  } else {
+    list = match get_repo_name() {
+      Some(repo) => repo,
+      None => list
+    };
+  }
 
   let mut buf = String::new();
   config_file.read_to_string(&mut buf).unwrap();

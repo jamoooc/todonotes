@@ -44,7 +44,13 @@ impl Command {
       process::exit(1);
     }
 
-    let path = config::get_list_name().unwrap();
+    let mut provided_path = String::new();
+    if matches.opt_present("t") {
+      provided_path = String::from(matches.opt_str("t").unwrap());
+    }
+
+    let path = config::get_list_name(&provided_path).unwrap();
+
     Command::new(cmd, arg, path)
   }
 

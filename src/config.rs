@@ -12,6 +12,7 @@ pub fn parse_args(program: &str, args: &Vec<String>) -> Result<Command, getopts:
   opts.optopt("a", "add", "Add \"list item\"", "");
   opts.optflag("l", "list", "List all items");
   opts.optopt("d", "delete", "Delete list item n, or items \"n n n\"", "");
+  opts.optopt("t", "todo", "Use another todo", "./todo_notes -t default");
   opts.optflag("r", "reset", "Reset list state");
   opts.optflag("h", "help", "Display usage info");
 

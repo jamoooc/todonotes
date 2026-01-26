@@ -16,6 +16,11 @@ pub fn parse_args(program: &str, args: &Vec<String>) -> Result<Command, getopts:
     opts.optflag("r", "reset", "Reset list state");
     opts.optflag("h", "help", "Display usage info");
 
+    // TODO: do we want to allow a "soft delete"? or archive somewhere?
+    // opts.optmulti("d", "delete", "Delete list item(s)", "-rm=3 -rm=5");
+
+    // opts.optmulti("c", "create", "Create list item(s)", "-rm=3 -rm=5");
+
     // parse options
     let matches = match opts.parse(&args[1..]) {
         Ok(m) => m,

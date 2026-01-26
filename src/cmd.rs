@@ -5,59 +5,67 @@ use std::{fs, process};
 
 use crate::config;
 
-#[derive(Debug)]
-enum CommandType {
-    Add,
-    List,
-    Delete,
-    Reset,
-}
+// #[derive(Debug)]
+// enum CommandType {
+//     Add,
+//     List,
+//     Delete,
+//     Reset,
+// }
+
+// #[derive(Debug)]
+// pub struct Command {
+//     cmd: CommandType,
+//     arg: String,
+//     path: String,
+// }
 
 #[derive(Debug)]
-pub struct Command {
-    cmd: CommandType,
-    arg: String,
-    path: String,
+pub enum Command {
+    Add     { path: String, arg: String },
+    List    { path: String },
+    Reset   { path: String },
+    Delete  { path: String, arg: String },
+    // Create  { path: String, arg: Vec<String> }
 }
 
 impl Command {
-    fn new(cmd: CommandType, arg: String, path: String) -> Command {
-        Command { cmd, arg, path }
-    }
-
+    // TODO: this should return an error
     pub fn get_command(matches: getopts::Matches) -> Command {
-        let cmd: CommandType;
-        let mut arg = String::from("");
-
-        if matches.opt_present("a") {
-            cmd = CommandType::Add;
-            arg = String::from(matches.opt_str("a").unwrap());
-        } else if matches.opt_present("d") {
-            cmd = CommandType::Delete;
-            arg = String::from(matches.opt_str("d").unwrap());
-        } else if matches.opt_present("l") {
-            cmd = CommandType::List;
-        } else if matches.opt_present("r") {
-            cmd = CommandType::Reset;
-        } else {
-            process::exit(1);
-        }
+        let arg: String; // TODO: this might be a Vec<String>
 
         let mut provided_path = String::new();
         if matches.opt_present("t") {
             provided_path = String::from(matches.opt_str("t").unwrap());
         }
+        let path = config::get_list_name(&provided_path).unwrap(); // todo no unwrap
 
-        let path = config::get_list_name(&provided_path).unwrap();
-
-        Command::new(cmd, arg, path)
+        if matches.opt_present("a") {
+            match matches.opt_str("a") {
+                Some(arg) => return Command::Add{ arg, path },
+                None => {
+                    eprintln!("Missing argument for -a command");
+                    process::exit(1)
+                }
+            }
+        } else if matches.opt_present("d") {
+            arg = String::from(matches.opt_str("d").unwrap());
+            return Command::Delete{ arg, path }
+        } else if matches.opt_present("l") {
+            return Command::List{ path }
+        } else if matches.opt_present("r") {
+            return Command::Reset{ path }
+        } else {
+            process::exit(1);
+        }
     }
 
-    fn add_list_item(command: Command) -> Result<(), std::io::Error> {
+    fn add_item(arg: String, path: String) -> Result<(), std::io::Error> {
+        println!("path: {:?}", path);
         let mut file = match fs::File::options()
             .append(true)
             .read(true)
-            .open(&command.path)
+            .open(&path)
         {
             Ok(file) => file,
             Err(e) => return Err(e),
@@ -69,7 +77,7 @@ impl Command {
         };
 
         let nlines = buf.lines().count();
-        let item = format!("\n{:0>2}. {}", nlines + 1, command.arg);
+        let item = format!("\n{:0>2}. {}", nlines + 1, arg);
 
         match buf.lines().nth(0) {
             Some(_) => {
@@ -88,19 +96,19 @@ impl Command {
             }
         };
 
-        println!("Added new item: {}", item.trim_start());
-        if let Err(e) = Self::print_list_items(command) {
-            return Err(e);
-        };
+        // println!("Added new item: {}", item.trim_start());
+        // if let Err(e) = Self::print_list_items(command) {
+        //     return Err(e);
+        // };
         Ok(())
     }
 
-    fn delete_list_item(command: Command) -> Result<(), std::io::Error> {
+    fn delete_item(arg: String, path: String) -> Result<(), std::io::Error> {
         // open the file for read/write
         let mut file = match fs::File::options()
             .write(true)
             .read(true)
-            .open(&command.path)
+            .open(&path)
         {
             Ok(file) => file,
             Err(e) => return Err(e),
@@ -113,8 +121,7 @@ impl Command {
         }
 
         // collect the list items to delete in a vector
-        let mut item_numbers: Vec<usize> = command
-            .arg
+        let mut item_numbers: Vec<usize> = arg
             .split_whitespace()
             .map(|x| match x.parse::<usize>() {
                 Ok(x) => x,
@@ -170,7 +177,7 @@ impl Command {
         let mut file = match fs::File::options()
             .write(true)
             .truncate(true)
-            .open(&command.path)
+            .open(&path)
         {
             Ok(file) => file,
             Err(e) => return Err(e),
@@ -186,21 +193,21 @@ impl Command {
             println!("\t{}", item);
         }
 
-        if let Err(e) = Self::print_list_items(command) {
-            return Err(e);
-        };
+        // if let Err(e) = Self::print_items(command) {
+        //     return Err(e);
+        // };
 
         Ok(())
     }
 
-    fn reset_list(command: Command) -> Result<(), std::io::Error> {
+    fn reset_list(path: String) -> Result<(), std::io::Error> {
         // strip the list name from the path
         let list_name_regex = match Regex::new(r"/([\w_]+).txt$") {
             Ok(re) => re,
             Err(e) => panic!("Error creating regular expression: {e}"),
         };
 
-        let caps = match list_name_regex.captures(&command.path) {
+        let caps = match list_name_regex.captures(&path) {
             Some(caps) => caps,
             None => panic!("Error getting list name"),
         };
@@ -211,7 +218,7 @@ impl Command {
         match fs::File::options()
             .write(true)
             .truncate(true)
-            .open(&command.path)
+            .open(&path)
         {
             Ok(file) => {
                 println!("List \"{}\" state reset.", list_name);
@@ -223,14 +230,14 @@ impl Command {
             }
         };
 
-        if let Err(e) = Self::print_list_items(command) {
-            return Err(e);
-        };
+        // if let Err(e) = Self::print_items(command) {
+        //     return Err(e);
+        // };
         Ok(())
     }
 
-    fn print_list_items(command: Command) -> Result<(), std::io::Error> {
-        let contents = match fs::read_to_string(command.path) {
+    fn print_items(path: String) -> Result<(), std::io::Error> {
+        let contents = match fs::read_to_string(path) {
             Ok(content) => content,
             Err(e) => return Err(e),
         };
@@ -241,11 +248,14 @@ impl Command {
     }
 
     pub fn run(command: Command) -> Result<(), Box<dyn Error>> {
-        match command.cmd {
-            CommandType::Add => Self::add_list_item(command)?,
-            CommandType::List => Self::print_list_items(command)?,
-            CommandType::Delete => Self::delete_list_item(command)?,
-            CommandType::Reset => Self::reset_list(command)?,
+        match command {
+            Command::Add    { arg, path } => Self::add_item(arg, path)?,
+            Command::List   { path } => Self::print_items(path)?,
+            Command::Delete { arg, path } => Self::delete_item(arg, path)?,
+            Command::Reset  { path } => Self::reset_list(path)?,
+            // Command::Create { arg, path } => {
+            //     todo!("todo")
+            // }
         }
         Ok(())
     }

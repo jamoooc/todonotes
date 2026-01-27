@@ -5,21 +5,6 @@ use std::{fs, process};
 
 use crate::config;
 
-// #[derive(Debug)]
-// enum CommandType {
-//     Add,
-//     List,
-//     Delete,
-//     Reset,
-// }
-
-// #[derive(Debug)]
-// pub struct Command {
-//     cmd: CommandType,
-//     arg: String,
-//     path: String,
-// }
-
 #[derive(Debug)]
 pub enum Command {
     Add     { path: String, arg: String },
@@ -29,35 +14,53 @@ pub enum Command {
     // Create  { path: String, arg: Vec<String> }
 }
 
-impl Command {
-    // TODO: this should return an error
-    pub fn get_command(matches: getopts::Matches) -> Command {
-        let arg: String; // TODO: this might be a Vec<String>
+#[derive(Debug)]
+pub enum CommandError {
+    UnknownCommand,
+    MissingArgument(&'static str),
+}
 
+impl std::fmt::Display for CommandError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            CommandError::UnknownCommand => write!(f, "Unknown command"),
+            CommandError::MissingArgument(arg) => write!(f, "Missing argument: {}", arg),
+        }
+    }
+}
+
+impl std::error::Error for CommandError {}
+
+impl Command {
+    pub fn get_command(matches: getopts::Matches) -> Result<Command, CommandError> {
+        // TODO: this option override the path we look for the repository, better way? at least
+        // wrap it in a func
         let mut provided_path = String::new();
         if matches.opt_present("t") {
             provided_path = String::from(matches.opt_str("t").unwrap());
         }
         let path = config::get_list_name(&provided_path).unwrap(); // todo no unwrap
 
+        // TODO: can we use constants for the options flags?
         if matches.opt_present("a") {
-            match matches.opt_str("a") {
-                Some(arg) => return Command::Add{ arg, path },
-                None => {
-                    eprintln!("Missing argument for -a command");
-                    process::exit(1)
-                }
+            return match matches.opt_str("a") {
+                Some(arg) => Ok(Command::Add{ arg, path }),
+                None => Err(CommandError::MissingArgument("item to add"))
             }
-        } else if matches.opt_present("d") {
-            arg = String::from(matches.opt_str("d").unwrap());
-            return Command::Delete{ arg, path }
-        } else if matches.opt_present("l") {
-            return Command::List{ path }
-        } else if matches.opt_present("r") {
-            return Command::Reset{ path }
-        } else {
-            process::exit(1);
         }
+        if matches.opt_present("d") {
+            return match matches.opt_str("d") {
+                Some(arg) => Ok(Command::Delete{ arg, path }),
+                None => Err(CommandError::MissingArgument("item number"))
+            }
+        }
+        if matches.opt_present("l") {
+            return Ok(Command::List{ path })
+        }
+        if matches.opt_present("r") {
+            return Ok(Command::Reset{ path })
+        }
+        Err(CommandError::UnknownCommand)
     }
 
     fn add_item(arg: String, path: String) -> Result<(), std::io::Error> {
@@ -96,10 +99,6 @@ impl Command {
             }
         };
 
-        // println!("Added new item: {}", item.trim_start());
-        // if let Err(e) = Self::print_list_items(command) {
-        //     return Err(e);
-        // };
         Ok(())
     }
 
@@ -193,10 +192,6 @@ impl Command {
             println!("\t{}", item);
         }
 
-        // if let Err(e) = Self::print_items(command) {
-        //     return Err(e);
-        // };
-
         Ok(())
     }
 
@@ -230,9 +225,6 @@ impl Command {
             }
         };
 
-        // if let Err(e) = Self::print_items(command) {
-        //     return Err(e);
-        // };
         Ok(())
     }
 
@@ -253,9 +245,6 @@ impl Command {
             Command::List   { path } => Self::print_items(path)?,
             Command::Delete { arg, path } => Self::delete_item(arg, path)?,
             Command::Reset  { path } => Self::reset_list(path)?,
-            // Command::Create { arg, path } => {
-            //     todo!("todo")
-            // }
         }
         Ok(())
     }

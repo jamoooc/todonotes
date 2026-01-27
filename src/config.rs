@@ -1,68 +1,7 @@
 use dirs::home_dir;
-use getopts::Options;
 use git2::Repository;
 use std::io::{Read, Write};
 use std::{env, fs, process};
-
-use crate::cmd::Command;
-
-pub fn parse_args(program: &str, args: &Vec<String>) -> Result<Command, getopts::Fail> {
-    // define command line options
-    let mut opts = Options::new();
-    opts.optopt("a", "add", "Add \"list item\"", "");
-    opts.optflag("l", "list", "List all items");
-    opts.optopt("d", "delete", "Delete list item n, or items \"n n n\"", "");
-    opts.optopt("t", "todo", "Use another todo", "./todo_notes -t default");
-    opts.optflag("r", "reset", "Reset list state");
-    opts.optflag("h", "help", "Display usage info");
-
-    // TODO: do we want to allow a "soft delete"? or archive somewhere?
-    // opts.optmulti("d", "delete", "Delete list item(s)", "-rm=3 -rm=5");
-
-    // opts.optmulti("c", "create", "Create list item(s)", "-rm=3 -rm=5");
-
-    // parse options
-    let matches = match opts.parse(&args[1..]) {
-        Ok(m) => m,
-        Err(f) => match f {
-            getopts::Fail::ArgumentMissing(f) => {
-                return Err(getopts::Fail::ArgumentMissing(f));
-            }
-            getopts::Fail::UnrecognizedOption(f) => {
-                return Err(getopts::Fail::UnrecognizedOption(f));
-            }
-            getopts::Fail::OptionMissing(f) => {
-                return Err(getopts::Fail::OptionMissing(f));
-            }
-            getopts::Fail::OptionDuplicated(f) => {
-                return Err(getopts::Fail::OptionDuplicated(f));
-            }
-            getopts::Fail::UnexpectedArgument(f) => {
-                return Err(getopts::Fail::UnexpectedArgument(f));
-            }
-        },
-    };
-
-    // exit with usage info if the options include help
-    if matches.opt_present("h") {
-        print_usage(&program, &opts);
-        process::exit(0);
-    }
-
-    // exit with the usage information if there are remaining arguments
-    if !matches.free.is_empty() {
-        print_usage(&program, &opts);
-        process::exit(1);
-    }
-
-    // create a Command struct with the option
-    Ok(Command::get_command(matches))
-}
-
-fn print_usage(program: &str, opts: &Options) {
-    let brief = format!("\nUsage: ./{} [options]", program);
-    println!("{}", opts.usage(&brief));
-}
 
 fn get_repo_name() -> Option<String> {
     let current_dir = match env::current_dir() {

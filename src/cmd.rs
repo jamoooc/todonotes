@@ -39,7 +39,9 @@ impl Command {
         if matches.opt_present("t") {
             provided_path = String::from(matches.opt_str("t").unwrap());
         }
-        let path = config::get_list_name(&provided_path).unwrap(); // todo no unwrap
+        // FIXME
+        let pb = config::get_list_path(&provided_path).unwrap(); // todo no unwrap
+        let path = pb.display().to_string();
 
         // TODO: can we use constants for the options flags?
         if matches.opt_present("a") {
@@ -79,10 +81,10 @@ impl Command {
             return Err(e);
         };
 
-        let nlines = buf.lines().count();
+        let nlines = config::get_config_entries(&buf).count();
         let item = format!("\n{:0>2}. {}", nlines + 1, arg);
 
-        match buf.lines().nth(0) {
+        match config::get_config_entries(&buf).nth(0) {
             Some(_) => {
                 // append item with a newline if the file is not empty
                 match file.write(item.as_bytes()) {
@@ -134,7 +136,7 @@ impl Command {
         item_numbers.dedup();
 
         // get the max list num and check it doesn't exceed the total items
-        let nlines: usize = buf.lines().count();
+        let nlines: usize = config::get_config_entries(&buf).count();
         let max_item = match item_numbers.iter().max() {
             Some(max) => max,
             None => panic!("Unable to determine maximum list item"),
@@ -148,7 +150,7 @@ impl Command {
         // split current list into a vector of list items (lines),
         // remove each given item and store a reference to print
         // the removed items
-        let mut list_items: Vec<&str> = buf.lines().collect();
+        let mut list_items: Vec<&str> = config::get_config_entries(&buf).collect();
         let mut removed_items: Vec<&str> = Vec::new();
         for n in item_numbers.iter() {
             removed_items.push(list_items.remove(n - 1));

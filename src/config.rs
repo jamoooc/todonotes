@@ -1,160 +1,97 @@
 use dirs::home_dir;
-use git2::Repository;
-use std::io::{Read, Write};
-use std::{env, fs, process};
+use git2::{ErrorCode, Repository};
+use std::io::{self, Read, Write};
+use std::path::{Path, PathBuf};
+use std::{env, fs};
 
-fn get_repo_name() -> Option<String> {
-    let current_dir = match env::current_dir() {
-        Ok(dir) => dir,
-        Err(e) => panic!("Error getting current working directory {e}"),
-    };
+const DEFAULT_LIST: &str = "DEFAULT";
+const CONFIG_DIR: &str = ".todo_notes";
+const CONFIG_FILE: &str = "config.toml";
 
-    // step up directory tree to find git repo
-    let repo = match Repository::discover(current_dir) {
+// TODO: how to log (and set a log level)
+
+fn get_repo_name() -> Result<Option<String>, Box<dyn std::error::Error>> {
+    let cwd = env::current_dir()?;
+    let repo = match Repository::discover(cwd) {
         Ok(repo) => repo,
-        Err(_) => {
-            println!("No git repository found. Using default task list");
-            return None;
-        }
+        Err(e) if e.code() == ErrorCode::NotFound => return Ok(None),
+        Err(e) => return Err(Box::new(e))
     };
 
-    // strip the .git dir from the path
-    let parent = match repo.path().parent() {
-        Some(path) => path,
-        None => {
-            println!("Error getting parent path. Using default task list");
-            return None;
-        }
+    let repo_name = repo.workdir()
+        .and_then(|path| path.file_name())
+        .and_then(|name| name.to_str())
+        .map(|s| s.to_ascii_uppercase()); // TODO: the caller should uppercase this
+
+    Ok(repo_name)
+}
+
+fn add_list_to_config(config_file: &mut fs::File, config_dir: &Path, list_name: &str) -> Result<PathBuf, Box<dyn std::error::Error>> {
+    let list_path = config_dir.join(CONFIG_DIR).join(format!("{}.txt", list_name));
+    writeln!(config_file, "{}={}", list_name, list_path.display())?;
+    fs::File::create(&list_path)?;
+    Ok(list_path)
+}
+
+fn get_user_config_dir() -> Result<PathBuf, Box<dyn std::error::Error>> {
+    if let Ok(config_home) = env::var("XDG_CONFIG_HOME") {
+        return Ok(PathBuf::from(config_home));
     };
 
-    // get the root git dir name
-    let list_name = match parent.file_stem() {
-        Some(name) => name,
-        None => {
-            println!("Error getting root directory name. Using default task list");
-            return None;
-        }
-    };
+    let mut path = home_dir().ok_or("Failed to determine home directory")?;
+    path.push(".config");
+    Ok(path)
+}
 
-    match list_name.to_str() {
-        Some(str) => {
-            println!("Found git repository. Using todo list: {str}");
-            Some(str.to_ascii_uppercase())
-        }
-        None => {
-            println!("Error converting to String. Using default task list");
-            return None;
-        }
+// TODO: probably doesn't live here
+pub fn get_config_entries(buf: &str) -> impl Iterator<Item = &str> {
+    buf.lines().filter(|line| !line.trim().is_empty())
+}
+
+fn open_or_create_config_file(config_dir: &Path) -> Result<fs::File, Box<dyn std::error::Error>> {
+    let path = config_dir.join(CONFIG_DIR).join(CONFIG_FILE);
+    match fs::OpenOptions::new().read(true).write(true).open(&path) {
+        Ok(file) => Ok(file),
+        Err(e) if e.kind() == io::ErrorKind::NotFound => {
+            fs::create_dir_all(config_dir.join(CONFIG_DIR))?;
+            Ok(fs::OpenOptions::new()
+                .read(true)
+                .append(true)
+                .create_new(true)
+                .open(&path)?)
+        },
+        Err(e) => Err(Box::new(e))
     }
 }
 
-fn add_list_to_config(config_dir: &str, list_name: &str) -> String {
-    println!(
-        "Creating task file: \"{config_dir}/.todo_notes/{}.txt\"",
-        list_name.to_lowercase()
-    );
-
-    let mut config = fs::File::options()
-        .append(true)
-        .read(true)
-        .create(true)
-        .open(format!("{}/.todo_notes/config.toml", config_dir))
-        .unwrap();
-
-    let mut buf = String::new();
-    config.read_to_string(&mut buf).unwrap();
-
-    let list = format!(
-        "\n{}={}/.todo_notes/{}.txt",
-        list_name,
-        config_dir,
-        list_name.to_lowercase()
-    );
-
-    // write list name, or append with a newline if the file is not empty
-    match buf.lines().nth(0) {
-        Some(_) => config.write(list.as_bytes()).unwrap(),
-        None => config.write(list.trim_start().as_bytes()).unwrap(),
-    };
-
-    // create the task list
-    fs::File::create(format!("{}/.todo_notes/{}.txt", config_dir, list_name)).unwrap();
-
-    String::from(format!(
-        "{}/.todo_notes/{}.txt",
-        config_dir,
-        list_name.to_lowercase()
-    ))
-}
-
-// get the user config path defined in XDG_CONFIG_HOME, or use the default
-fn get_user_config_dir() -> String {
-    let home_dir = home_dir().unwrap();
-    env::var("XDG_CONFIG_HOME")
-        .unwrap_or_else(|_| String::from(format!("{}/.config", home_dir.display())))
-}
-
-// get a handle to the user's config file, or create one if it doesn't exist
-fn get_config_file_handle(config_path: &str, default_list: &str) -> fs::File {
-    fs::File::open(format!("{}/.todo_notes/config.toml", config_path)).unwrap_or_else(|_| {
-        create_config_file(&config_path, &default_list);
-        fs::File::open(format!("{}/.todo_notes/config.toml", config_path)).unwrap_or_else(|err| {
-            eprintln!(
-                "Error opening \"{}/.todo_notes\" directory: {}",
-                &config_path, err
-            );
-            process::exit(1);
-        })
-    })
-}
-
-// create a config file in the users config file directory and add provided list
-fn create_config_file(config_dir: &str, default_list: &str) {
-    println!("Creating directory: \"{}/.todo_notes\"", config_dir);
-    fs::create_dir_all(format!("{}/.todo_notes", config_dir)).unwrap_or_else(|err| {
-        eprintln!(
-            "Error creating \"{}/.todo_notes\" directory: {}",
-            config_dir, err
-        );
-        process::exit(1);
-    });
-    add_list_to_config(config_dir, default_list);
-}
-
-pub fn get_list_name(provided_path: &str) -> Result<String, ()> {
-    // attempt to find a config file in the users config file path,
-    // if unsuccessful create the config and a default task list
-    let mut list = String::from("DEFAULT");
-    let config_path = get_user_config_dir();
-    let mut config_file = get_config_file_handle(&config_path, &list);
-
-    // if the user is in a git repo, create/use a task list for this
-    // dir referenced by the uppercased repo name in their config,
-    // otherwise, use the default list
-    if !provided_path.is_empty() {
-        list = provided_path.to_uppercase();
+pub fn get_list_path(name_override: &str) -> Result<PathBuf, Box<dyn std::error::Error>> {
+    let name = if !name_override.is_empty() {
+        name_override.to_uppercase()
     } else {
-        list = match get_repo_name() {
-            Some(repo) => repo,
-            None => list,
-        };
-    }
+        match get_repo_name() {
+            Ok(Some(repo)) => repo,
+            Ok(None) => DEFAULT_LIST.to_string(),
+            Err(e) => return Err(e),
+        }
+    };
+
+    let config_path: PathBuf = get_user_config_dir()?;
+    let mut config_file: fs::File = open_or_create_config_file(&config_path)?;
 
     let mut buf = String::new();
     config_file.read_to_string(&mut buf).unwrap();
 
-    // find the config line entry for the current list name
-    let mut list_name = String::new();
-    for line in buf.lines() {
-        if line.starts_with(&list) {
-            list_name = line.split('=').nth(1).unwrap().to_string();
+    let mut list_path = String::new();
+    for line in get_config_entries(&buf) {
+        if line.starts_with(&name) {
+            list_path = line.split('=').nth(1).unwrap().to_string();
         }
     }
 
-    // if the list doesn't exist, add it to their config and create the list
-    if list_name.len() == 0 {
-        list_name = add_list_to_config(&config_path, &list);
+    if list_path.is_empty() {
+        let rv = add_list_to_config(&mut config_file, &config_path, &name)?;
+        return Ok(rv);
     }
 
-    Ok(list_name)
+    Ok(PathBuf::from(list_path))
 }

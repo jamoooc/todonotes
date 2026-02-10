@@ -5,7 +5,7 @@ use getopts::Options;
 use todo_notes::cmd;
 
 fn print_usage(program: &str, opts: &Options) {
-    let brief = format!("\nUsage: ./{} [options]", program);
+    let brief = format!("\nUsage: {} [options]", program);
     println!("{}", opts.usage(&brief));
 }
 

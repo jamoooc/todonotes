@@ -39,6 +39,7 @@ impl Command {
         if matches.opt_present("t") {
             provided_path = String::from(matches.opt_str("t").unwrap());
         }
+
         // FIXME
         let pb = config::get_list_path(&provided_path).unwrap(); // todo no unwrap
         let path = pb.display().to_string();
@@ -50,18 +51,22 @@ impl Command {
                 None => Err(CommandError::MissingArgument("item to add"))
             }
         }
+
         if matches.opt_present("d") {
             return match matches.opt_str("d") {
                 Some(arg) => Ok(Command::Delete{ arg, path }),
                 None => Err(CommandError::MissingArgument("item number"))
             }
         }
-        if matches.opt_present("l") {
+
+        if matches.opt_present("p") {
             return Ok(Command::List{ path })
         }
+
         if matches.opt_present("r") {
             return Ok(Command::Reset{ path })
         }
+
         Err(CommandError::UnknownCommand)
     }
 

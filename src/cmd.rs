@@ -2,15 +2,16 @@ use regex::Regex;
 use std::error::Error;
 use std::io::{Read, Write};
 use std::{fs, process};
+use std::path::{Path, PathBuf};
 
 use crate::config;
 
 #[derive(Debug)]
 pub enum Command {
-    Add     { path: String, arg: String },
-    List    { path: String },
-    Reset   { path: String },
-    Delete  { path: String, arg: String },
+    Add     { path: PathBuf, arg: String },
+    List    { path: PathBuf },
+    Reset   { path: PathBuf },
+    Delete  { path: PathBuf, arg: String },
     // Create  { path: String, arg: Vec<String> }
 }
 
@@ -18,12 +19,14 @@ pub enum Command {
 pub enum CommandError {
     UnknownCommand,
     MissingArgument(&'static str),
+    ConfigError(Box<dyn std::error::Error>),
 }
 
 impl std::fmt::Display for CommandError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             CommandError::UnknownCommand => write!(f, "Unknown command"),
+            CommandError::ConfigError(err) => write!(f, "Config error {}", err),
             CommandError::MissingArgument(arg) => write!(f, "Missing argument: {}", arg),
         }
     }
@@ -31,18 +34,24 @@ impl std::fmt::Display for CommandError {
 
 impl std::error::Error for CommandError {}
 
+impl From<Box<dyn std::error::Error>> for CommandError {
+    fn from(err: Box<dyn std::error::Error>) -> Self {
+        CommandError::ConfigError(err)
+    }
+}
+
 impl Command {
     pub fn get_command(matches: getopts::Matches) -> Result<Command, CommandError> {
+
         // TODO: this option override the path we look for the repository, better way? at least
         // wrap it in a func
         let mut provided_path = String::new();
-        if matches.opt_present("t") {
-            provided_path = String::from(matches.opt_str("t").unwrap());
+        if matches.opt_present("s") {
+            provided_path = String::from(matches.opt_str("s").unwrap());
         }
 
         // FIXME
-        let pb = config::get_list_path(&provided_path).unwrap(); // todo no unwrap
-        let path = pb.display().to_string();
+        let path = config::get_list_path(&provided_path)?;
 
         // TODO: can we use constants for the options flags?
         if matches.opt_present("a") {
@@ -70,7 +79,7 @@ impl Command {
         Err(CommandError::UnknownCommand)
     }
 
-    fn add_item(arg: String, path: String) -> Result<(), std::io::Error> {
+    fn add_item(arg: &str, path: &Path) -> Result<(), std::io::Error> {
         println!("path: {:?}", path);
         let mut file = match fs::File::options()
             .append(true)
@@ -109,7 +118,7 @@ impl Command {
         Ok(())
     }
 
-    fn delete_item(arg: String, path: String) -> Result<(), std::io::Error> {
+    fn delete_item(arg: &str, path: &Path) -> Result<(), std::io::Error> {
         // open the file for read/write
         let mut file = match fs::File::options()
             .write(true)
@@ -202,14 +211,19 @@ impl Command {
         Ok(())
     }
 
-    fn reset_list(path: String) -> Result<(), std::io::Error> {
+    fn reset_list(path: &Path) -> Result<(), std::io::Error> {
         // strip the list name from the path
         let list_name_regex = match Regex::new(r"/([\w_]+).txt$") {
             Ok(re) => re,
             Err(e) => panic!("Error creating regular expression: {e}"),
         };
 
-        let caps = match list_name_regex.captures(&path) {
+        let path_str = match path.to_str() {
+            Some(ps) => ps,
+            None => panic!("Failed to get path str")
+        };
+
+        let caps = match list_name_regex.captures(path_str) {
             Some(caps) => caps,
             None => panic!("Error getting list name"),
         };
@@ -235,11 +249,8 @@ impl Command {
         Ok(())
     }
 
-    fn print_items(path: String) -> Result<(), std::io::Error> {
-        let contents = match fs::read_to_string(path) {
-            Ok(content) => content,
-            Err(e) => return Err(e),
-        };
+    fn print_items(path: &Path) -> Result<(), std::io::Error> {
+        let contents = fs::read_to_string(path)?;
         for line in contents.lines() {
             println!("{line}");
         }
@@ -248,10 +259,10 @@ impl Command {
 
     pub fn run(command: Command) -> Result<(), Box<dyn Error>> {
         match command {
-            Command::Add    { arg, path } => Self::add_item(arg, path)?,
-            Command::List   { path } => Self::print_items(path)?,
-            Command::Delete { arg, path } => Self::delete_item(arg, path)?,
-            Command::Reset  { path } => Self::reset_list(path)?,
+            Command::Add    { arg, path } => Self::add_item(&arg, &path)?,
+            Command::List   { path } => Self::print_items(&path)?,
+            Command::Delete { arg, path } => Self::delete_item(&arg, &path)?,
+            Command::Reset  { path } => Self::reset_list(&path)?,
         }
         Ok(())
     }

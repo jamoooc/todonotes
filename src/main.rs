@@ -6,6 +6,7 @@ use log::{debug,LevelFilter};
 use std::str::FromStr;
 
 use todo_notes::cmd;
+use todo_notes::{FLAG_CREATE,FLAG_DELETE,FLAG_SWITCH,FLAG_RESET,FLAG_PRINT,FLAG_LEVEL,FLAG_HELP};
 
 fn print_usage(program: &str, opts: &Options) {
     let brief = format!("\nUsage: {} [options]", program);
@@ -17,14 +18,14 @@ fn main() {
     let program = args[0].clone();
 
     let mut opts = Options::new();
-    opts.optopt("a", "add", "Add \"item\"", "");
-    opts.optopt("d", "delete", "Delete list item n, or items \"n n n\"", "");
-    opts.optopt("s", "switch", "Switch to another list", "./todo_notes -s default"); // s switch
-    opts.optopt("l", "level", "Set the log level", "INFO");
+    opts.optflag(FLAG_PRINT, "print", "Print all items");
+    opts.optflag(FLAG_RESET, "reset", "Reset list state");
+    opts.optopt(FLAG_CREATE, "create", "Create \"item\"", "");
+    opts.optopt(FLAG_DELETE, "delete", "Delete list item n, or items \"n n n\"", "");
 
-    opts.optflag("p", "print", "Print all items");
-    opts.optflag("r", "reset", "Reset list state");
-    opts.optflag("h", "help", "Display usage info");
+    opts.optopt(FLAG_SWITCH, "switch", "Switch to another list", "./todo_notes -s default"); // s switch
+    opts.optopt(FLAG_LEVEL, "level", "Set the log level", "INFO");
+    opts.optflag(FLAG_HELP, "help", "Display usage info");
 
     let matches = match opts.parse(&args[1..]) {
         Ok(m) => m,

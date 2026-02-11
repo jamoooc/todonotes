@@ -64,34 +64,57 @@ fn open_or_create_config_file(config_dir: &Path) -> Result<fs::File, Box<dyn std
     }
 }
 
-pub fn get_list_path(name_override: &str) -> Result<PathBuf, Box<dyn std::error::Error>> {
-    let name = if !name_override.is_empty() {
-        name_override.to_uppercase()
-    } else {
-        match get_repo_name() {
-            Ok(Some(repo)) => repo,
-            Ok(None) => DEFAULT_LIST.to_string(),
-            Err(e) => return Err(e),
-        }
-    };
-
-    let config_path: PathBuf = get_user_config_dir()?;
-    let mut config_file: fs::File = open_or_create_config_file(&config_path)?;
-
+fn read_config_file(config_path: &Path) -> Result<String, Box<dyn std::error::Error>> {
+    let mut config_file = open_or_create_config_file(config_path)?;
     let mut buf = String::new();
-    config_file.read_to_string(&mut buf).unwrap();
+    config_file.read_to_string(&mut buf)?;
+    Ok(buf)
+}
 
-    let mut list_path = String::new();
-    for line in get_config_entries(&buf) {
-        if line.starts_with(&name) {
-            list_path = line.split('=').nth(1).unwrap().to_string();
+fn parse_config_line(line: &str) -> Option<(&str, &str)>{
+    let parts: Vec<&str> = line.splitn(2, '=').collect();
+    if parts.len() == 2 {
+        Some((parts[0].trim(), parts[1].trim()))
+    } else {
+        None
+    }
+}
+
+fn lookup_list_in_config(config: &str, name: &str) -> Option<PathBuf> {
+    for line in get_config_entries(config) {
+        if let Some((key, value)) = parse_config_line(line) {
+            if key == name {
+                return Some(PathBuf::from(value));
+            }
         }
     }
+    None
+}
 
-    if list_path.is_empty() {
-        let rv = add_list_to_config(&mut config_file, &config_path, &name)?;
-        return Ok(rv);
+fn get_list_path(name: &str) -> Result<PathBuf, Box<dyn std::error::Error>> {
+    let config_path: PathBuf = get_user_config_dir()?;
+    let config = read_config_file(&config_path)?;
+
+    if let Some(path) = lookup_list_in_config(&config, name) {
+        return Ok(path)
     }
 
-    Ok(PathBuf::from(list_path))
+    let mut config_file = open_or_create_config_file(&config_path)?;
+    add_list_to_config(&mut config_file, &config_path, name)
+}
+
+pub fn resolve_named_list(named_list: &str) -> Result<PathBuf, Box<dyn std::error::Error>> {
+    let name = named_list.to_uppercase();
+    let list_path = get_list_path(&name)?;
+    Ok(list_path)
+}
+
+pub fn resolve_repo_list() -> Result<PathBuf, Box<dyn std::error::Error>> {
+    let name = match get_repo_name() {
+        Ok(Some(repo)) => repo,
+        Ok(None) => DEFAULT_LIST.to_string(),
+        Err(e) => return Err(e),
+    };
+    let list_path = get_list_path(&name)?;
+    Ok(list_path)
 }

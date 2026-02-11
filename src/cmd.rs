@@ -5,14 +5,14 @@ use std::{fs, process};
 use std::path::{Path, PathBuf};
 
 use crate::config;
+use crate::{FLAG_CREATE,FLAG_DELETE,FLAG_SWITCH,FLAG_RESET,FLAG_PRINT};
 
 #[derive(Debug)]
 pub enum Command {
-    Add     { path: PathBuf, arg: String },
-    List    { path: PathBuf },
-    Reset   { path: PathBuf },
-    Delete  { path: PathBuf, arg: String },
-    // Create  { path: String, arg: Vec<String> }
+    Print  { path: PathBuf },
+    Reset  { path: PathBuf },
+    Create { path: PathBuf, arg: String },
+    Delete { path: PathBuf, arg: String },
 }
 
 #[derive(Debug)]
@@ -42,37 +42,31 @@ impl From<Box<dyn std::error::Error>> for CommandError {
 
 impl Command {
     pub fn get_command(matches: getopts::Matches) -> Result<Command, CommandError> {
+        let path = if let Some(list_name) = matches.opt_str(FLAG_SWITCH) {
+            config::resolve_named_list(&list_name)?
+        } else {
+            config::resolve_repo_list()?
+        };
 
-        // TODO: this option override the path we look for the repository, better way? at least
-        // wrap it in a func
-        let mut provided_path = String::new();
-        if matches.opt_present("s") {
-            provided_path = String::from(matches.opt_str("s").unwrap());
-        }
-
-        // FIXME
-        let path = config::get_list_path(&provided_path)?;
-
-        // TODO: can we use constants for the options flags?
-        if matches.opt_present("a") {
-            return match matches.opt_str("a") {
-                Some(arg) => Ok(Command::Add{ arg, path }),
+        if matches.opt_present(FLAG_CREATE) {
+            return match matches.opt_str(FLAG_CREATE) {
+                Some(arg) => Ok(Command::Create{ arg, path }),
                 None => Err(CommandError::MissingArgument("item to add"))
             }
         }
 
-        if matches.opt_present("d") {
-            return match matches.opt_str("d") {
+        if matches.opt_present(FLAG_DELETE) {
+            return match matches.opt_str(FLAG_DELETE) {
                 Some(arg) => Ok(Command::Delete{ arg, path }),
                 None => Err(CommandError::MissingArgument("item number"))
             }
         }
 
-        if matches.opt_present("p") {
-            return Ok(Command::List{ path })
+        if matches.opt_present(FLAG_PRINT) {
+            return Ok(Command::Print{ path })
         }
 
-        if matches.opt_present("r") {
+        if matches.opt_present(FLAG_RESET) {
             return Ok(Command::Reset{ path })
         }
 
@@ -80,7 +74,6 @@ impl Command {
     }
 
     fn add_item(arg: &str, path: &Path) -> Result<(), std::io::Error> {
-        println!("path: {:?}", path);
         let mut file = match fs::File::options()
             .append(true)
             .read(true)
@@ -259,8 +252,8 @@ impl Command {
 
     pub fn run(command: Command) -> Result<(), Box<dyn Error>> {
         match command {
-            Command::Add    { arg, path } => Self::add_item(&arg, &path)?,
-            Command::List   { path } => Self::print_items(&path)?,
+            Command::Create    { arg, path } => Self::add_item(&arg, &path)?,
+            Command::Print   { path } => Self::print_items(&path)?,
             Command::Delete { arg, path } => Self::delete_item(&arg, &path)?,
             Command::Reset  { path } => Self::reset_list(&path)?,
         }

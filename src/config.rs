@@ -8,8 +8,6 @@ const DEFAULT_LIST: &str = "DEFAULT";
 const CONFIG_DIR: &str = ".todo_notes";
 const CONFIG_FILE: &str = "config.toml";
 
-// TODO: how to log (and set a log level)
-
 fn get_repo_name() -> Result<Option<String>, Box<dyn std::error::Error>> {
     let cwd = env::current_dir()?;
     let repo = match Repository::discover(cwd) {
@@ -21,7 +19,7 @@ fn get_repo_name() -> Result<Option<String>, Box<dyn std::error::Error>> {
     let repo_name = repo.workdir()
         .and_then(|path| path.file_name())
         .and_then(|name| name.to_str())
-        .map(|s| s.to_ascii_uppercase()); // TODO: the caller should uppercase this
+        .map(|s| s.to_ascii_uppercase());
 
     Ok(repo_name)
 }
@@ -43,7 +41,6 @@ fn get_user_config_dir() -> Result<PathBuf, Box<dyn std::error::Error>> {
     Ok(path)
 }
 
-// TODO: probably doesn't live here
 pub fn get_config_entries(buf: &str) -> impl Iterator<Item = &str> {
     buf.lines().filter(|line| !line.trim().is_empty())
 }

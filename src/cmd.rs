@@ -1,11 +1,18 @@
 use std::error::Error;
 use std::io::{Read, Write};
-use std::{fs};
+use std::fs;
+use uuid::Uuid;
 use std::path::{Path, PathBuf};
 use log::{debug};
 
 use crate::config;
 use crate::{FLAG_CREATE,FLAG_DELETE,FLAG_SWITCH,FLAG_RESET,FLAG_PRINT};
+
+#[derive(Debug)]
+pub struct ListItem {
+    pub id: String,
+    pub item: String,
+}
 
 #[derive(Debug)]
 pub enum Command {
@@ -79,16 +86,22 @@ impl Command {
         Err(CommandError::UnknownCommand)
     }
 
+    fn generate_id() -> String {
+        Uuid::new_v4().simple().to_string()[0..8].to_string()
+    }
+
     fn create_item(arg: &str, path: &Path) -> Result<(), std::io::Error> {
+        let id = Self::generate_id();
+        let list_item = ListItem { id, item: arg.to_string() };
+
         let mut file = fs::File::options().append(true).read(true).open(&path)?;
         let mut buf = String::new();
         file.read_to_string(&mut buf)?;
 
-        let nlines = config::get_config_entries(&buf).count();
         if buf.is_empty() {
-            write!(file, "{:0>2}. {}", nlines + 1, arg)?;
+            write!(file, "[{}] {}", list_item.id, list_item.item)?;
         } else {
-            writeln!(file, "{:0>2}. {}", nlines + 1, arg)?;
+            writeln!(file, "[{}] {}", list_item.id, list_item.item)?;
         }
 
         Ok(())
@@ -157,10 +170,20 @@ impl Command {
         Ok(())
     }
 
+    fn strip_id_prefix(line: &str) -> &str {
+        if let Some(idx) = line.find(']') {
+            line[idx + 1..].trim_start()
+        } else {
+            line
+        }
+    }
+
     fn print_items(path: &Path) -> Result<(), std::io::Error> {
         let contents = fs::read_to_string(path)?;
-        for line in contents.lines() {
-            println!("{line}");
+        let len = contents.lines().count().to_string().len();
+        for (i, line) in contents.lines().enumerate() {
+            let text = Self::strip_id_prefix(line);
+            println!("{:0len$}. {}", i, text);
         }
         Ok(())
     }

@@ -20,10 +20,10 @@ fn main() {
     let mut opts = Options::new();
     opts.optflag(FLAG_PRINT, "print", "Print all items");
     opts.optflag(FLAG_RESET, "reset", "Reset list state");
-    opts.optopt(FLAG_CREATE, "create", "Create \"item\"", "");
-    opts.optopt(FLAG_DELETE, "delete", "Delete list item n, or items \"n n n\"", "");
+    opts.optopt(FLAG_CREATE, "create", "Create \"item\"", "-c \"item to create\"");
+    opts.optmulti(FLAG_DELETE, "delete", "Delete list item n", "-d 5");
 
-    opts.optopt(FLAG_SWITCH, "switch", "Switch to another list", "./todo_notes -s default"); // s switch
+    opts.optopt(FLAG_SWITCH, "switch", "Switch to another list", "./todo_notes -s default"); // use progname?
     opts.optopt(FLAG_LEVEL, "level", "Set the log level", "INFO");
     opts.optflag(FLAG_HELP, "help", "Display usage info");
 

@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::error::Error;
 use std::io::{Read, Write};
 use std::fs;
@@ -19,13 +20,14 @@ pub enum Command {
     Print  { path: PathBuf },
     Reset  { path: PathBuf },
     Create { path: PathBuf, arg: String },
-    Delete { path: PathBuf, arg: String },
+    Delete { path: PathBuf, arg: Vec<String> },
 }
 
 #[derive(Debug)]
 pub enum CommandError {
     EmptyList,
     UnknownCommand,
+    NoItemsProvided,
     ItemOutOfRange,
     InvalidItemFormat,
     MissingArgument(&'static str),
@@ -37,6 +39,7 @@ impl std::fmt::Display for CommandError {
         match self {
             CommandError::EmptyList => write!(f, "The list is empty"),
             CommandError::UnknownCommand => write!(f, "Unknown command"),
+            CommandError::NoItemsProvided => write!(f, "Expected an item"),
             CommandError::ConfigError(err) => write!(f, "Config error {}", err),
             CommandError::ItemOutOfRange => write!(f, "Item number out of range"),
             CommandError::InvalidItemFormat => write!(f, "Failed to parse list item"),
@@ -69,10 +72,11 @@ impl Command {
         }
 
         if matches.opt_present(FLAG_DELETE) {
-            return match matches.opt_str(FLAG_DELETE) {
-                Some(arg) => Ok(Command::Delete{ arg, path }),
-                None => Err(CommandError::MissingArgument("item number"))
+            let arg = matches.opt_strs(FLAG_DELETE);
+            if arg.len() < 1 {
+                return Err(CommandError::MissingArgument("item number"))
             }
+            return Ok(Command::Delete{ arg, path })
         }
 
         if matches.opt_present(FLAG_PRINT) {
@@ -107,58 +111,39 @@ impl Command {
         Ok(())
     }
 
-    fn parse_item_text(item: &str) -> Result<&str, CommandError> {
-        item.split_once(". ").map(|(_, text)| text).ok_or(CommandError::InvalidItemFormat)
+    fn extract_id(line: &str) -> Option<&str> {
+        line.strip_prefix('[')
+            .and_then(|s| s.split_once(']'))
+            .map(|(id, _)| id)
     }
 
-    fn delete_item(arg: &str, path: &Path) -> Result<(), Box<dyn std::error::Error>> {
-        let mut file = fs::File::options().write(true).read(true).open(&path)?;
-
-        let mut buf = String::new();
-        file.read_to_string(&mut buf)?;
-
-        // collect the list items to delete in a vector
-        let mut item_numbers: Vec<usize> = arg
-            .split_whitespace()
+    fn delete_item(arg: &[String], path: &Path) -> Result<(), Box<dyn std::error::Error>> {
+        let display_numbers = arg.iter()
             .map(|x| x.parse::<usize>())
             .collect::<Result<Vec<_>, _>>()?;
 
-        // sort items in reverse so we don't affect indexing by
-        // removing earlier items, and remove any duplicates
-        item_numbers.sort_by(|a, b| b.cmp(a));
-        item_numbers.dedup();
+        let contents = fs::read_to_string(&path)?;
+        let items: Vec<&str> = config::get_config_entries(&contents).collect();
 
-        // get the max list num and check it doesn't exceed the total items
-        let max_item = item_numbers.iter().max().ok_or(CommandError::EmptyList)?;
-        let nlines = config::get_config_entries(&buf).count();
-        if *max_item > nlines {
+        let max = display_numbers.iter().max().ok_or(CommandError::InvalidItemFormat)?;
+        if *max > items.len() {
             return Err(Box::new(CommandError::ItemOutOfRange));
         }
 
-        // split current list into a vector of list items (lines),
-        // remove each given item and store a reference to print
-        // the removed items
-        let mut list_items: Vec<&str> = config::get_config_entries(&buf).collect();
-        let mut removed_items: Vec<&str> = Vec::new();
-        for n in item_numbers.iter() {
-            removed_items.push(list_items.remove(n - 1));
-        }
+        let mut ids_to_delete: HashSet<&str> = HashSet::new();
+        for num in &display_numbers {
+            let item = items[num - 1];
+            if let Some(id) = Self::extract_id(item) {
+                ids_to_delete.insert(id);
+            }
+        };
 
-        let mut new_items: Vec<String> = Vec::new();
-        for (i, item) in list_items.iter().enumerate() {
-            let item_text = Self::parse_item_text(item)?;
-            new_items.push(format!("{:0>2}. {}", i + 1, item_text));
-        }
+        let remaining: Vec<&str> = items.into_iter().filter(|line| {
+            Self::extract_id(line).map(|id| !ids_to_delete.contains(id)).unwrap_or(true)
+        }).collect();
 
-        // open the file, trucate and write the updated item list
-        let mut file = fs::File::options().write(true).truncate(true).open(&path)?;
-        file.write_all(&new_items.join("\n").as_bytes())?;
-
-        removed_items.reverse(); // order the items by item num
-        debug!("Deleted {} list items:", item_numbers.len());
-        for item in removed_items.iter() {
-            debug!("\t{}", item);
-        }
+        let mut file = fs::File::options().write(true).truncate(true).open(path)?;
+        file.write_all(remaining.join("\n").as_bytes())?;
 
         Ok(())
     }
@@ -183,7 +168,7 @@ impl Command {
         let len = contents.lines().count().to_string().len();
         for (i, line) in contents.lines().enumerate() {
             let text = Self::strip_id_prefix(line);
-            println!("{:0len$}. {}", i, text);
+            println!("{:0len$}. {}", i + 1, text);
         }
         Ok(())
     }

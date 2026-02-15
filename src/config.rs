@@ -41,6 +41,7 @@ fn get_user_config_dir() -> Result<PathBuf, Box<dyn std::error::Error>> {
     Ok(path)
 }
 
+// is this just a get_lines...
 pub fn get_config_entries(buf: &str) -> impl Iterator<Item = &str> {
     buf.lines().filter(|line| !line.trim().is_empty())
 }

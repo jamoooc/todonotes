@@ -41,8 +41,7 @@ fn get_user_config_dir() -> Result<PathBuf, Box<dyn std::error::Error>> {
     Ok(path)
 }
 
-// is this just a get_lines...
-pub fn get_config_entries(buf: &str) -> impl Iterator<Item = &str> {
+pub fn get_lines(buf: &str) -> impl Iterator<Item = &str> {
     buf.lines().filter(|line| !line.trim().is_empty())
 }
 
@@ -79,7 +78,7 @@ fn parse_config_line(line: &str) -> Option<(&str, &str)>{
 }
 
 fn lookup_list_in_config(config: &str, name: &str) -> Option<PathBuf> {
-    for line in get_config_entries(config) {
+    for line in get_lines(config) {
         if let Some((key, value)) = parse_config_line(line) {
             if key == name {
                 return Some(PathBuf::from(value));

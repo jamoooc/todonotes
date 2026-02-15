@@ -73,7 +73,7 @@ impl Command {
 
         if matches.opt_present(FLAG_DELETE) {
             let arg = matches.opt_strs(FLAG_DELETE);
-            if arg.len() < 1 {
+            if arg.is_empty() {
                 return Err(CommandError::MissingArgument("item number"))
             }
             return Ok(Command::Delete{ arg, path })
@@ -123,9 +123,9 @@ impl Command {
             .collect::<Result<Vec<_>, _>>()?;
 
         let contents = fs::read_to_string(&path)?;
-        let items: Vec<&str> = config::get_config_entries(&contents).collect();
+        let items: Vec<&str> = config::get_lines(&contents).collect();
 
-        let max = display_numbers.iter().max().ok_or(CommandError::InvalidItemFormat)?;
+        let max = display_numbers.iter().max().ok_or(CommandError::NoItemsProvided)?;
         if *max > items.len() {
             return Err(Box::new(CommandError::ItemOutOfRange));
         }
@@ -165,8 +165,9 @@ impl Command {
 
     fn print_items(path: &Path) -> Result<(), std::io::Error> {
         let contents = fs::read_to_string(path)?;
-        let len = contents.lines().count().to_string().len();
-        for (i, line) in contents.lines().enumerate() {
+        let items: Vec<&str> = config::get_lines(&contents).collect();
+        let len = items.len().to_string().len();
+        for (i, line) in items.iter().enumerate() {
             let text = Self::strip_id_prefix(line);
             println!("{:0len$}. {}", i + 1, text);
         }

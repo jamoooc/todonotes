@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use std::{env, fs};
 
 const DEFAULT_LIST: &str = "DEFAULT";
-const CONFIG_DIR: &str = ".todo_notes";
+const CONFIG_DIR: &str = ".notes";
 const CONFIG_FILE: &str = "config.toml";
 
 fn get_repo_name() -> Result<Option<String>, Box<dyn std::error::Error>> {

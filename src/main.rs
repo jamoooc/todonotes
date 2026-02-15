@@ -5,8 +5,8 @@ use env_logger::{Builder};
 use log::{debug,LevelFilter};
 use std::str::FromStr;
 
-use todo_notes::cmd;
-use todo_notes::{FLAG_CREATE,FLAG_DELETE,FLAG_SWITCH,FLAG_RESET,FLAG_PRINT,FLAG_LEVEL,FLAG_HELP};
+use notes::cmd;
+use notes::{FLAG_CREATE,FLAG_DELETE,FLAG_SWITCH,FLAG_RESET,FLAG_PRINT,FLAG_LEVEL,FLAG_HELP};
 
 fn print_usage(program: &str, opts: &Options) {
     let brief = format!("\nUsage: {} [options]", program);

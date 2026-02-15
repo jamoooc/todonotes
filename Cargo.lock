@@ -441,6 +441,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f8ca58f447f06ed17d5fc4043ce1b10dd205e060fb3ce5b979b8ed8e59ff3f79"
 
 [[package]]
+name = "notes"
+version = "0.1.0"
+dependencies = [
+ "dirs",
+ "env_logger",
+ "getopts",
+ "git2",
+ "log",
+ "regex",
+ "uuid",
+]
+
+[[package]]
 name = "once_cell"
 version = "1.21.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -717,19 +730,6 @@ checksum = "42d3e9c45c09de15d06dd8acf5f4e0e399e85927b7f00711024eb7ae10fa4869"
 dependencies = [
  "displaydoc",
  "zerovec",
-]
-
-[[package]]
-name = "todo_notes"
-version = "0.1.0"
-dependencies = [
- "dirs",
- "env_logger",
- "getopts",
- "git2",
- "log",
- "regex",
- "uuid",
 ]
 
 [[package]]
